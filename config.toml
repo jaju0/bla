@@ -1,0 +1,16 @@
+port=4815
+
+[ssl]
+enabled=false
+key_file=""
+cert_file=""
+
+[database]
+host="localhost"
+user="chatapp"
+password="YourPassword"
+name="chatapp"
+charset="utf8mb4"
+
+[websocket]
+path="/realtime"
