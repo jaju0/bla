@@ -25,4 +25,5 @@ export default interface Config
     ssl: SSLConfig;
     database: DatabaseConfig;
     websocket: WebsocketConfig;
+    rate_limiters: any;
 }

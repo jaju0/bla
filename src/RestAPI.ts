@@ -1,8 +1,10 @@
 import crypto from "crypto";
 import { EventEmitter } from "events";
 import express, { Express, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import Database from "./Database.js";
 import { ValidationStrategies } from "./Api.js";
+import Config from "./Config.js";
 
 
 // REQUEST SCHEMAS
@@ -132,37 +134,41 @@ export declare interface RestAPI
 
 export class RestAPI extends EventEmitter
 {
+    private config: Config;
     private validationStrategies: ValidationStrategies;
     private database: Database;
     private expressInstance: Express;
 
-    constructor(validationStrategies: ValidationStrategies, expressInstance: Express, database: Database)
+    constructor(config: Config, validationStrategies: ValidationStrategies, expressInstance: Express, database: Database)
     {
         super();
+        this.config = config;
         this.validationStrategies = validationStrategies;
         this.database = database;
         this.expressInstance = expressInstance;
         this.expressInstance.use(express.json());
 
+        const rateLimiterCfg = this.config.rate_limiters;
+
         // USER ENDPOINTS
-        this.expressInstance.post("/user", this.createUser.bind(this));
-        this.expressInstance.put("/user", this.updateUser.bind(this));
-        this.expressInstance.delete("/user/:username", this.deleteUser.bind(this));
-        this.expressInstance.get("/user", this.getUsers.bind(this));
-        this.expressInstance.get("/user/:username", this.getUserByName.bind(this));
+        this.expressInstance.post("/user", rateLimit(rateLimiterCfg.post.user ? rateLimiterCfg.post.user : rateLimiterCfg), this.createUser.bind(this));
+        this.expressInstance.put("/user", rateLimit(rateLimiterCfg.put.user ? rateLimiterCfg.put.user : rateLimiterCfg), this.updateUser.bind(this));
+        this.expressInstance.delete("/user/:username", rateLimit(rateLimiterCfg.delete.user.username ? rateLimiterCfg.delete.user.username : rateLimiterCfg), this.deleteUser.bind(this) as any);
+        this.expressInstance.get("/user", rateLimit(rateLimiterCfg.get.user ? rateLimiterCfg.get.user : rateLimiterCfg), this.getUsers.bind(this) as any);
+        this.expressInstance.get("/user/:username", rateLimit(rateLimiterCfg.get.user.username ? rateLimiterCfg.get.user.username : rateLimiterCfg), this.getUserByName.bind(this) as any);
 
         // MESSAGE ENDPOINTS
-        this.expressInstance.post("/message", this.postMessage.bind(this));
-        this.expressInstance.delete("/message/:id", this.deleteMessage.bind(this));
-        this.expressInstance.get("/message/:id", this.getMessageById.bind(this));
-        this.expressInstance.get("/message/user/:username", this.getMessagesByUsername.bind(this));
-        this.expressInstance.get("/message/chatroom/:chatroom_id", this.getMessagesByChatroomId.bind(this));
+        this.expressInstance.post("/message", rateLimit(rateLimiterCfg.post.message ? rateLimiterCfg.post.message : rateLimiterCfg), this.postMessage.bind(this));
+        this.expressInstance.delete("/message/:id", rateLimit(rateLimiterCfg.delete.message.id ? rateLimiterCfg.delete.message.id : rateLimiterCfg), this.deleteMessage.bind(this) as any);
+        this.expressInstance.get("/message/:id", rateLimit(rateLimiterCfg.get.message.id ? rateLimiterCfg.get.message.id : rateLimiterCfg), this.getMessageById.bind(this) as any);
+        this.expressInstance.get("/message/user/:username", rateLimit(rateLimiterCfg.get.message.user.username ? rateLimiterCfg.get.message.user.username : rateLimiterCfg), this.getMessagesByUsername.bind(this) as any);
+        this.expressInstance.get("/message/chatroom/:chatroom_id", rateLimit(rateLimiterCfg.get.message.chatroom.chatroom_id ? rateLimiterCfg.get.message.chatroom.chatroom_id : rateLimiterCfg), this.getMessagesByChatroomId.bind(this) as any);
 
         // CHATROOM ENDPOINTS
-        this.expressInstance.post("/chatroom", this.postChatroom.bind(this));
-        this.expressInstance.delete("/chatroom/:id", this.deleteChatroom.bind(this));
-        this.expressInstance.get("/chatroom", this.getChatrooms.bind(this));
-        this.expressInstance.get("/chatroom/:username", this.getChatroomsByUsername.bind(this));
+        this.expressInstance.post("/chatroom", rateLimit(rateLimiterCfg.post.chatroom ? rateLimiterCfg.post.chatroom : rateLimiterCfg), this.postChatroom.bind(this));
+        this.expressInstance.delete("/chatroom/:id", rateLimit(rateLimiterCfg.delete.chatroom.id ? rateLimiterCfg.delete.chatroom.id : rateLimiterCfg), this.deleteChatroom.bind(this) as any);
+        this.expressInstance.get("/chatroom", rateLimit(rateLimiterCfg.get.chatroom ? rateLimiterCfg.get.chatroom : rateLimiterCfg), this.getChatrooms.bind(this) as any);
+        this.expressInstance.get("/chatroom/:username", rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg, this.getChatroomsByUsername.bind(this));
     }
 
     // USER OPERATIONS

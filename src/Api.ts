@@ -47,7 +47,7 @@ export default class Api
         this.expressInstance = express();
         this.database = new Database(this.config);
 
-        this.restApi = new RestAPI(this.validationStrategies, this.expressInstance, this.database);
+        this.restApi = new RestAPI(this.config, this.validationStrategies, this.expressInstance, this.database);
         this.restApi.on("post_chatroom", this.onRESTPostChatroom.bind(this));
         this.restApi.on("delete_chatroom", this.onRESTDeleteChatroom.bind(this));
         this.restApi.on("post_message", this.onRESTPostMessage.bind(this));
