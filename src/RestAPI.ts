@@ -168,7 +168,7 @@ export class RestAPI extends EventEmitter
         this.expressInstance.post("/chatroom", rateLimit(rateLimiterCfg.post.chatroom ? rateLimiterCfg.post.chatroom : rateLimiterCfg), this.postChatroom.bind(this));
         this.expressInstance.delete("/chatroom/:id", rateLimit(rateLimiterCfg.delete.chatroom.id ? rateLimiterCfg.delete.chatroom.id : rateLimiterCfg), this.deleteChatroom.bind(this) as any);
         this.expressInstance.get("/chatroom", rateLimit(rateLimiterCfg.get.chatroom ? rateLimiterCfg.get.chatroom : rateLimiterCfg), this.getChatrooms.bind(this) as any);
-        this.expressInstance.get("/chatroom/:username", rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg, this.getChatroomsByUsername.bind(this));
+        this.expressInstance.get("/chatroom/:username", rateLimit(rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg), this.getChatroomsByUsername.bind(this) as any);
     }
 
     // USER OPERATIONS
