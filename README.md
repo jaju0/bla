@@ -4,6 +4,67 @@
     </a>
 </div>
 
+<details>
+    <summary>Table of Contents</summary>
+    <ol>
+        <li>
+            <a href="#about-this-project">About this Project</a>
+            <ul>
+                <li><a href="#built-with">Built with</a></li>
+            </ul>
+        </li>
+        <li>
+            <a href="#getting-started">Getting Started</a>
+            <ul>
+                <li>
+                    <a href="#prerequisites">Prerequisites</a>
+                    <ul>
+                        <li><a href="#installing-and-setting-up-mariadb-on-debianubuntu">Installing and setting up MariaDB on Debian/Ubuntu</a></li>
+                    </ul>
+                </li>
+                <li><a href="#installation">Installation</a></li>
+                <li>
+                    <a href="#configuration">Configuration</a>
+                    <ul>
+                        <li><a href="#port">Port</a></li>
+                        <li><a href="#ssl">SSL</a></li>
+                        <li><a href="#database">Database</a></li>
+                        <li><a href="#websocket">Websocket</a></li>
+                        <li><a href="#rate-limiters">Rate Limiters</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li>
+            <a href="#usage">Usage</a>
+            <ul>
+                <li><a href="#rest-api">REST API</a></li>
+                <li>
+                    <a href="#websocket-api">Websocket API</a>
+                    <ul>
+                        <li>
+                            <a href="#channels">Channels</a>
+                            <ul>
+                                <li><a href="#chatrooms">chatrooms</a></li>
+                                <li><a href="#chatrooms.{username}">chatrooms.{username}</a></li>
+                                <li><a href="#users.{chatroom_id}">users.{chatroom_id}</a></li>
+                                <li><a href="#message.{chatroom_id}">message.{chatroom_id}</a></li>
+                                <li><a href="#message.{username}">message.{username}</a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li><a href="#roadmap">Roadmap</a></li>
+        <li><a href="#contributing">Contributing</a></li>
+    </ol>
+</details>
+
+
+
+
+
 ## About this Project
 
 Bla is a simple chat server with a basic REST API implementation, as well as a custom implemented websocket event-driven architecture for instant messaging. As of now, it is just a practice project, and I did not design it for real-world usage, so it may have potential security risks.
@@ -125,7 +186,7 @@ key_file="/path/to/your/key/file"
 cert_file="/path/to/your/cert/file"
 ```
 
-#### database
+#### Database
 
 Change the variables 'user,' 'password,' and 'name' to the values you specified during your MariaDB configuration. 'name' refers to the database name.
 
@@ -140,7 +201,7 @@ name="bla"
 charset="utf8mb4"
 ```
 
-#### websocket
+#### Websocket
 
 Modify the URI path of the websocket API:
 
@@ -247,7 +308,7 @@ Expect to receive a snapshot immediately after subscription as initial data.
 "delete" and "insert" will change this initial dataset.
 
 
-#### chatrooms
+##### chatrooms
 
 Lists all available chatrooms that a user can join.
 
@@ -265,7 +326,7 @@ Payload:
 ]
 ```
 
-#### chatrooms.{username}
+##### chatrooms.{username}
 
 Lists all available chatrooms owned by a specific user.
 
@@ -284,7 +345,7 @@ Payload:
 ]
 ```
 
-#### users.{chatroom_id}
+##### users.{chatroom_id}
 
 Lists all users that are subscribed to this channel, too.
 
@@ -302,7 +363,7 @@ Payload:
 ]
 ```
 
-#### message.{chatroom_id}
+##### message.{chatroom_id}
 
 Lists all messages of a specific chatroom.
 
@@ -321,7 +382,7 @@ Lists all messages of a specific chatroom.
 ]
 ```
 
-#### message.{username}
+##### message.{username}
 
 Lists all messages of a specific user.
 
