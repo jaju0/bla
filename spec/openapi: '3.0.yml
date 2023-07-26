@@ -1,12 +1,11 @@
 openapi: '3.0.2'
 info:
-  title: ChatApp API
+  title: bla API
   description:
-    <p>The ChatApp API is a RESTful API that allows users to perform various actions related to user management,
+    <p>The bla API is a RESTful API that allows users to perform various actions related to user management,
     messaging, and chatrooms. It provides endpoints for creating, updating, deleting users,
     as well as posting and deleting messages in different chatrooms.
     Users can also retrieve information about other users, messages, and chatrooms.</p>
-    <p><em>This API belongs to my ChatApp Portfolio project series and should only be used for demonstration purposes.</em></p>
   version: '1.0'
 servers:
   - url: http://localhost
