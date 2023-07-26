@@ -1,0 +1,62 @@
+port=4815
+
+[ssl]
+enabled=false
+key_file=""
+cert_file=""
+
+[database]
+host="localhost"
+user="chatapp"
+password="YourPassword"
+name="chatapp"
+charset="utf8mb4"
+
+[websocket]
+path="/realtime"
+
+[rate_limiters]
+windowMs = 60000
+max = 60
+
+[rate_limiters.post.user]
+max = 1
+
+[rate_limiters.put.user]
+max = 30
+
+[rate_limiters.delete.user.username]
+max = 30
+
+[rate_limiters.get.user]
+max = 120
+
+[rate_limiters.get.user.username]
+max = 120
+
+[rate_limiters.post.message]
+max = 60
+
+[rate_limiters.delete.message.id]
+max = 30
+
+[rate_limiters.get.message.id]
+max = 30
+
+[rate_limiters.get.message.user.username]
+max = 60
+
+[rate_limiters.get.message.chatroom.chatroom_id]
+max = 60
+
+[rate_limiters.post.chatroom]
+max = 60
+
+[rate_limiters.delete.chatroom.id]
+max = 60
+
+[rate_limiters.get.chatroom]
+max = 60
+
+[rate_limiters.get.chatroom.username]
+max = 60

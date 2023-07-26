@@ -1,0 +1,616 @@
+openapi: '3.0.2'
+info:
+  title: bla API
+  description:
+    <p>The bla API is a RESTful API that allows users to perform various actions related to user management,
+    messaging, and chatrooms. It provides endpoints for creating, updating, deleting users,
+    as well as posting and deleting messages in different chatrooms.
+    Users can also retrieve information about other users, messages, and chatrooms.</p>
+  version: '1.0'
+servers:
+  - url: http://localhost
+tags:
+  - name: user
+    description: All user related actions
+  - name: message
+    description: All message related actions
+  - name: chatroom
+    description: All chatroom related actions
+paths:
+  /user:
+    post:
+      tags:
+        - user
+      summary: Create a new user
+      description:
+        Create a new user.
+        <ul>
+          <li>Username must be alphanumeric</li>
+          <li>Password must have at least 8 characters, max. 60 characters, 1 letter and 1 number</li>
+        </ul>
+      operationId: createUser
+      requestBody:
+        description: Add a new user to chatapp
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUser"
+      responses:
+        '200':
+          $ref: "#/components/responses/UserData"
+        '400':
+          description: Invalid request
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+    put:
+      security:
+        - apiKey: []
+      tags:
+        - user
+      summary: Update your user data
+      description:
+        Update your user data
+        <ul>
+          <li>Your username is mandatory and will be checked against your API Key</li>
+          <li>pass the other fields to update them</li>
+          <li>If you update your password expect a new API Key in your response</li>
+          <li>Password must have at least 8 characters, max. 60 characters, 1 letter and 1 number</li>
+        </ul>
+      operationId: updateUser
+      requestBody:
+        description: Update your user data.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUser"
+      responses:
+        '200':
+          $ref: "#/components/responses/UserData"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: Username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+    get:
+      security:
+        - apiKey: []
+      tags:
+        - user
+      summary: Get a list of all users
+      description: Get a list of all users
+      operationId: getUsers
+      parameters:
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/UserList"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: Username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /user/{username}:
+    delete:
+      security:
+        - apiKey: []
+      tags:
+        - user
+      summary: Delete yourself
+      description:
+        Delete yourself
+        <ul>
+          <li>Your username is mandatory and will be checked against your API Key</li>
+        </ul>
+      operationId: deleteUser
+      parameters:
+        - name: username
+          in: path
+          description: name of user to delete
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User successfully deleted
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: Username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+    get:
+      security:
+        - apiKey: []
+      tags:
+        - user
+      summary: Get specific user
+      description: Get specific user
+      operationId: getUserByName
+      parameters:
+        - name: username
+          in: path
+          description: name of user to return
+          required: true
+          schema:
+            type: string
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/User"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: Username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /message:
+    post:
+      security:
+        - apiKey: []
+      tags:
+        - message
+      summary: Post a message
+      description: Post a message
+      operationId: postMessage
+      requestBody:
+        description: Create a new message from your account
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessage"
+      responses:
+        '200':
+          $ref: "#/components/responses/MessageCreation"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: Username or chatroom not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /message/{id}:
+    delete:
+      security:
+        - apiKey: []
+      tags:
+        - message
+      summary: Delete a message
+      description: Delete a message
+      operationId: deleteMessage
+      parameters:
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: ID of message to delete
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message successfully deleted
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: username or message not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+    get:
+      security:
+        - apiKey: []
+      tags:
+        - message
+      summary: Get message by ID
+      description: Get message by ID
+      operationId: getMessageById
+      parameters:
+        - name: id
+          in: path
+          description: ID of message to return
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/Message"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: message not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /message/user/{username}:
+    get:
+      security:
+        - apiKey: []
+      tags:
+        - message
+      summary: Get messages by username
+      description: Get messages by username
+      operationId: getMessagesByUsername
+      parameters:
+        - name: username
+          in: path
+          description: username of the user to get all messages from
+          required: true
+          schema:
+            type: string
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/MessageList"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /message/chatroom/{chatroom_id}:
+    get:
+      security:
+        - apiKey: []
+      tags:
+        - message
+      summary: Get messages by chatroom ID
+      description: Get messages by chatroom ID
+      operationId: getMessagesByChatroomId
+      parameters:
+        - name: chatroom_id
+          in: path
+          description: id of the chatroom to get all messages from
+          required: true
+          schema:
+            type: string
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/MessageList"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /chatroom:
+    post:
+      security:
+        - apiKey: []
+      tags:
+        - chatroom
+      summary: Create a chatroom
+      description: Create a chatroom
+      operationId: postChatroom
+      requestBody:
+        description: Create a chatroom on chatapp
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChatroom"
+      responses:
+        '200':
+          $ref: "#/components/responses/ChatroomCreation"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: username not found
+        '409':
+          description: topic already exists
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+    get:
+      security:
+        - apiKey: []
+      tags:
+        - chatroom
+      summary: Get all chatrooms
+      description: Get all chatrooms
+      operationId: getChatrooms
+      parameters:
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/ChatroomList"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /chatroom/{id}:
+    delete:
+      security:
+        - apiKey: []
+      tags:
+        - chatroom
+      summary: Delete a chatroom
+      description: Delete a chatroom
+      operationId: deleteChatroom
+      parameters:
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: ID of chatroom to delete
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chatroom successfully deleted
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: username or chatroom not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+  /chatroom/{username}:
+    get:
+      security:
+        - apiKey: []
+      tags:
+        - chatroom
+      summary: Get all chatrooms from a specific user
+      description: Get all chatrooms from a specific user
+      operationId: getChatroomsByUsername
+      parameters:
+        - name: username
+          in: path
+          description: owner's username of chatrooms to return
+          required: true
+          schema:
+            type: string
+        - name: username
+          in: query
+          description: username to check against API Key in header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/ChatroomList"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: username not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    CreateUser:
+      type: object
+      properties:
+        username:
+          type: string
+          example: AnneWand
+        password:
+          type: string
+          example: Your Password
+        description:
+          type: string
+          example: Hello, this is me!
+      required:
+        - username
+        - password
+    UpdateUser:
+      type: object
+      properties:
+        username:
+          type: string
+          example: AnneWand
+        password:
+          type: string
+          example: Your New Password
+        description:
+          type: string
+          example: Your new description.
+      required:
+        - username
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+          example: AnneWand
+        description:
+          type: string
+          example: "Hello, this is me!"
+    UserData:
+      type: object
+      properties:
+        username:
+          type: string
+          example: AnneWand
+        description:
+          type: string
+          example: "Hello, this is me!"
+        api_key:
+          type: string
+          example: 94d467083c13ce23621fac89c529f7b6
+    CreateMessage:
+      type: object
+      properties:
+        username:
+          type: string
+          example: AnneWand
+        chatroom_id:
+          type: string
+          example: 0daab929-eb60-4ac2-b12f-ff49c07158c0
+        content:
+          type: string
+          example: "This is an example message!"
+      required:
+        - username
+        - chatroom_id
+        - content
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 08584e61-d3a8-4d32-bbb9-af3f80f7331d
+        username:
+          type: string
+          example: AnneWand
+        chatroom_id:
+          type: string
+          example: 7e5ad11d-46be-4cb7-a019-b22b8a0a391b
+        content:
+          type: string
+          example: Hello everyone!
+        creation_time:
+          type: integer
+          format: int32
+          example: 1689363578345
+    CreateChatroom:
+      type: object
+      properties:
+        username:
+          type: string
+          example: AnneWand
+        topic:
+          type: string
+          example: How to find a job
+    Chatroom:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 7d77a53c-0e6b-4fd7-bef9-62faef73054a
+        topic:
+          type: string
+          example: How to find a job
+        owner_username:
+          type: string
+          example: AnneWand
+  responses:
+    UnauthorizedError:
+      description: API Key is missing, invalid or has no authorization to make this request
+    UserList:
+      description: List of all users on chatapp
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/User"
+    User:
+      description: Requested user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/User"
+    UserData:
+        description: User operation successful
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserData"
+    MessageList:
+      description: List of all requested messages
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/Message"
+    MessageCreation:
+      description: Created message
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    Message:
+      description: Requested message
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    ChatroomList:
+      description: List of all requested chatrooms
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/Chatroom"
+    ChatroomCreation:
+      description: Created chatroom
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Chatroom"
+    Chatroom:
+      description: Requested chatroom
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Chatroom"
