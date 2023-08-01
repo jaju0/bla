@@ -124,7 +124,7 @@ Please replace 'YourPassword' with your chosen password and 'bla' with your pref
 Grant all privileges to the newly created user on the newly created database:
 
 ```sql
-GRANT ALL PRIVILEGES ON 'bla'.* TO 'bla'@'localhost' IDENTIFIED BY 'YourPassword';
+GRANT ALL PRIVILEGES ON bla.* TO 'bla'@'localhost' IDENTIFIED BY 'YourPassword';
 ```
 
 Apply the changes:
