@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { EventEmitter } from "events";
 import express, { Express, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
+import cors from "cors";
 import Database from "./Database.js";
 import { ValidationStrategies } from "./Api.js";
 import Config from "./Config.js";
@@ -147,6 +148,7 @@ export class RestAPI extends EventEmitter
         this.database = database;
         this.expressInstance = expressInstance;
         this.expressInstance.use(express.json());
+        this.expressInstance.use(cors());
 
         const rateLimiterCfg = this.config.rate_limiters;
 
