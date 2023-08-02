@@ -184,6 +184,7 @@ If you have a valid SSL certificate for your domain, enable SSL and set the path
 enabled=true
 key_file="/path/to/your/key/file"
 cert_file="/path/to/your/cert/file"
+ca_file="/path/to/your/chain/file"
 ```
 
 #### Database

@@ -58,6 +58,7 @@ export default class Api
             this.httpServer = https.createServer({
                 key: fs.readFileSync(this.config.ssl.key_file),
                 cert: fs.readFileSync(this.config.ssl.cert_file),
+                ca: fs.readFileSync(this.config.ssl.ca_file),
             }, this.expressInstance);
         }
         else
