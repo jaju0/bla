@@ -3,6 +3,7 @@ export interface SSLConfig
     enabled: boolean;
     key_file: string;
     cert_file: string;
+    ca_file: string;
 }
 
 export interface DatabaseConfig
