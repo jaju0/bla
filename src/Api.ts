@@ -83,7 +83,7 @@ export default class Api
             this.httpServer = http.createServer(this.expressInstance);
         }
 
-        this.websocketApi = new WebsocketAPI(this.config, this.validationStrategies, this.httpServer, this.database)
+        this.websocketApi = new WebsocketAPI(this.config, this.validationStrategies, this.sessionStore, this.httpServer, this.database)
 
         this.httpServer.listen(this.config.port);
     }
