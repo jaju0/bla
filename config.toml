@@ -16,9 +16,19 @@ charset="utf8mb4"
 [websocket]
 path="/realtime"
 
+[bcrypt]
+salt_rounds=12
+
+[session]
+secret="YourSessionSecret"
+cookie_max_age=86400000
+
 [rate_limiters]
 windowMs = 60000
 max = 60
+
+[rate_limiters.post.login]
+max = 10
 
 [rate_limiters.post.user]
 max = 1

@@ -7,7 +7,7 @@ import Config from "./Config.js";
 export interface UpdateUser
 {
     username: string;
-    api_key?: string;
+    password_hash?: string;
     user_description?: string;
 }
 
@@ -22,7 +22,7 @@ export interface User
 export interface UserData
 {
     username: string;
-    api_key: string;
+    password_hash: string;
     user_description: string;
 }
 
@@ -59,197 +59,324 @@ export default class Database
 
     public async insertUser(user: UserData)
     {
-        const response = await this.execute(
-            "INSERT INTO users VALUES (?, ?, ?)",
-            [user.username, user.api_key, user.user_description]
-        );
+        try
+        {
+            const response = await this.execute(
+                "INSERT INTO users VALUES (?, ?, ?)",
+                [user.username, user.password_hash, user.user_description]
+            );
 
-        return response != undefined;
+            return response != undefined;
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async deleteUser(username: string)
     {
-        const response = await this.execute(
-            "DELETE FROM users WHERE username=?",
-            [username]
-        );
+        try
+        {
+            const response = await this.execute(
+                "DELETE FROM users WHERE username=?",
+                [username]
+            );
 
-        return response != undefined;
+            return response != undefined;
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async updateUser(data: UpdateUser)
     {
-        let expressions = "";
-        let values = new Array<string>();
-
-        if(data.api_key)
+        try
         {
-            if(expressions.length) expressions += ",";
-            expressions += "api_key=?";
-            values.push(data.api_key);
-        }
+            let expressions = "";
+            let values = new Array<string>();
 
-        if(data.user_description)
+            if(data.password_hash)
+            {
+                if(expressions.length) expressions += ",";
+                expressions += "password_hash=?";
+                values.push(data.password_hash);
+            }
+
+            if(data.user_description)
+            {
+                if(expressions.length) expressions += ",";
+                expressions += "user_description=?";
+                values.push(data.user_description);
+            }
+
+            values.push(data.username);
+
+            const response = await this.execute(
+                "UPDATE users SET " + expressions + " WHERE username=?",
+                values
+            );
+
+            return response != undefined;
+        }
+        catch(err)
         {
-            if(expressions.length) expressions += ",";
-            expressions += "user_description=?";
-            values.push(data.user_description);
+            return undefined;
         }
-
-        values.push(data.username);
-
-        const response = await this.execute(
-            "UPDATE users SET " + expressions + " WHERE username=?",
-            values
-        );
-
-        return response != undefined;
     }
 
     public async getAllUsers()
     {
-        const response = await this.query("SELECT * FROM users");
-        return !response ? response : response[0] as User[];
+        try
+        {
+            const response = await this.query("SELECT * FROM users");
+            return !response ? [] : response[0] as User[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getUser(username: string)
     {
-        const response = await this.execute(
-            "SELECT username,user_description FROM users WHERE username=?",
-            [username]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT username,user_description FROM users WHERE username=?",
+                [username]
+            );
 
-        return !response ? response : response[0] as User[];
+            return !response ? [] : response[0] as User[];
+        }
+        catch(err)
+        {
+            console.log(`catch ${err}`);
+            return undefined;
+        }
     }
 
     public async getUserData(username: string)
     {
-        const response = await this.execute(
-            "SELECT * FROM users WHERE username=?",
-            [username]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT * FROM users WHERE username=?",
+                [username]
+            );
 
-        return !response ? response : response[0] as UserData[];
+            return !response ? [] : response[0] as UserData[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async insertMessage(message: Message)
     {
-        let isoTime = message.creation_time.toISOString();
-        isoTime = isoTime.replace("T", " "),
-        isoTime = isoTime.replace("Z", "");
+        try
+        {
+            let isoTime = message.creation_time.toISOString();
+            isoTime = isoTime.replace("T", " "),
+            isoTime = isoTime.replace("Z", "");
 
-        const response = await this.execute(
-            "INSERT INTO messages VALUES (?, ?, ?, ?, ?)",
-            [message.id, message.username, message.chatroom_id, message.content, isoTime]
-        );
+            const response = await this.execute(
+                "INSERT INTO messages VALUES (?, ?, ?, ?, ?)",
+                [message.id, message.username, message.chatroom_id, message.content, isoTime]
+            );
 
-        return response != undefined;
+            return response != undefined;
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async deleteMessage(id: string)
     {
-        const response = await this.execute(
-            "DELETE FROM messages WHERE id=?",
-            [id]
-        );
+        try
+        {
+            const response = await this.execute(
+                "DELETE FROM messages WHERE id=?",
+                [id]
+            );
 
-        return response != undefined;
+            return response != undefined;
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async deleteMessagesByChatroomId(chatroomId: string)
     {
-        const response = await this.execute(
-            "DELETE FROM messages WHERE chatroom_id=?",
-            [chatroomId]
-        );
+        try
+        {
+            const response = await this.execute(
+                "DELETE FROM messages WHERE chatroom_id=?",
+                [chatroomId]
+            );
 
-        return response != undefined;
+            return response != undefined;
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getMessageById(id: string)
     {
-        const response = await this.execute(
-            "SELECT * FROM messages WHERE id=?",
-            [id]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT * FROM messages WHERE id=?",
+                [id]
+            );
 
-        return !response ? response : response[0] as Message[];
+            return !response ? [] : response[0] as Message[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getMessagesByUsername(username: string)
     {
-        const response = await this.execute(
-            "SELECT * FROM messages WHERE username=?",
-            [username]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT * FROM messages WHERE username=?",
+                [username]
+            );
 
-        return !response ? response : response[0] as Message[];
+            return !response ? [] : response[0] as Message[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getMessagesByChatroomId(chatroomId: string)
     {
-        const response = await this.execute(
-            "SELECT * FROM messages WHERE chatroom_id=?",
-            [chatroomId]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT * FROM messages WHERE chatroom_id=?",
+                [chatroomId]
+            );
 
-        return !response ? response : response[0] as Message[];
+            return !response ? [] : response[0] as Message[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async insertChatroom(chatroom: Chatroom)
     {
-        const response = await this.execute(
-            "INSERT INTO chatrooms VALUES (?, ?, ?)",
-            [chatroom.id, chatroom.topic, chatroom.owner_username]
-        );
+        try
+        {
+            const response = await this.execute(
+                "INSERT INTO chatrooms VALUES (?, ?, ?)",
+                [chatroom.id, chatroom.topic, chatroom.owner_username]
+            );
 
-        return response != undefined;
+            return response != undefined;
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async deleteChatroom(id: string)
     {
-        const response = await this.execute(
-            "DELETE FROM chatrooms WHERE id=?",
-            [id]
-        );
+        try
+        {
+            const response = await this.execute(
+                "DELETE FROM chatrooms WHERE id=?",
+                [id]
+            );
 
-        return response != undefined;
+            return response != undefined;
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getChatrooms()
     {
-        const response = await this.query("SELECT * FROM chatrooms");
-        return !response ? response : response[0] as Chatroom[];
+        try
+        {
+            const response = await this.query("SELECT * FROM chatrooms");
+            return !response ? [] : response[0] as Chatroom[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getChatroomById(id: string)
     {
-        const response = await this.execute(
-            "SELECT * FROM chatrooms WHERE id=?",
-            [id]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT * FROM chatrooms WHERE id=?",
+                [id]
+            );
 
-        return !response ? response : response[0] as Chatroom[];
+            return !response ? [] : response[0] as Chatroom[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getChatroomsByOwner(owner_username: string)
     {
-        const response = await this.execute(
-            "SELECT * FROM chatrooms WHERE owner_username=?",
-            [owner_username]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT * FROM chatrooms WHERE owner_username=?",
+                [owner_username]
+            );
 
-        return !response ? response : response[0] as Chatroom[];
+            return !response ? [] : response[0] as Chatroom[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     public async getChatroomByTopic(topic: string)
     {
-        const response = await this.execute(
-            "SELECT * FROM chatrooms WHERE topic=?",
-            [topic]
-        );
+        try
+        {
+            const response = await this.execute(
+                "SELECT * FROM chatrooms WHERE topic=?",
+                [topic]
+            );
 
-        return !response ? response : response[0] as Chatroom[];
+            return !response ? [] : response[0] as Chatroom[];
+        }
+        catch(err)
+        {
+            return undefined;
+        }
     }
 
     private async initialize()

@@ -3,6 +3,8 @@ import http from "http";
 import https from "https";
 import toml from "toml";
 import express, { Express } from "express";
+import session, { MemoryStore } from "express-session";
+import cookieParser from "cookie-parser";
 import Config from "./Config.js";
 import { Chatroom as RESTChatroom, Message as RESTMessage, RestAPI } from "./RestAPI.js";
 import Database from "./Database.js";
@@ -24,6 +26,7 @@ export default class Api
 {
     private config: Config;
     private validationStrategies: ValidationStrategies;
+    private sessionStore: MemoryStore;
     private expressInstance: Express;
     private httpServer: http.Server | https.Server;
     private database: Database;
@@ -44,7 +47,21 @@ export default class Api
             topicValidationStrategy: new TopicValidationBase(),
         };
 
+        this.sessionStore = new MemoryStore();
+
         this.expressInstance = express();
+
+        this.expressInstance.use(session({
+            name: "sid",
+            secret: this.config.session.secret,
+            saveUninitialized: true,
+            cookie: { maxAge: this.config.session.cookie_max_age },
+            resave: true,
+            store: this.sessionStore,
+        }));
+
+        this.expressInstance.use(cookieParser());
+
         this.database = new Database(this.config);
 
         this.restApi = new RestAPI(this.config, this.validationStrategies, this.expressInstance, this.database);
@@ -56,9 +73,9 @@ export default class Api
         if(this.config.ssl.enabled)
         {
             this.httpServer = https.createServer({
-                key: fs.readFileSync(this.config.ssl.key_file),
-                cert: fs.readFileSync(this.config.ssl.cert_file),
-                ca: fs.readFileSync(this.config.ssl.ca_file),
+                key: fs.readFileSync(this.config.ssl.key_file, "utf8"),
+                cert: fs.readFileSync(this.config.ssl.cert_file, "utf8"),
+                ca: fs.readFileSync(this.config.ssl.ca_file, "utf8"),
             }, this.expressInstance);
         }
         else

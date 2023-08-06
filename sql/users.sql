@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255) NOT NULL PRIMARY KEY,
-    api_key VARCHAR(32) NOT NULL,
+    password_hash BINARY(60) NOT NULL,
     user_description TEXT
 )
