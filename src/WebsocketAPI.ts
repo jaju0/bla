@@ -4,31 +4,33 @@ import internal from "stream";
 import { URL } from "url";
 import crypto from "crypto";
 import { RawData, WebSocket, WebSocketServer } from "ws";
+import { MemoryStore } from "express-session";
+import { signedCookie } from "cookie-parser";
+import cookie from "cookie";
 import Config from "./Config.js";
 import Database, { Message as DatabaseMessage } from "./Database.js";
-import { AuthChannel, SubscribableChannel, SubscribeChannel, UsersChannel, SubscribableMessage } from "./channels.js";
+import { SubscribableChannel, SubscribeChannel, UsersChannel, SubscribableMessage } from "./channels.js";
 import { ValidationStrategies } from "./Api.js";
 
 export interface WebSocketClient
 {
     uuid: string;
     socket: WebSocket;
-    username?: string;
-    api_key?: string;
+    username: string;
 }
 
 export default class WebsocketAPI
 {
     private config: Config;
     private validationStrategies: ValidationStrategies;
+    private sessionStore: MemoryStore;
     private httpServer: http.Server | https.Server;
     private clients: Map<string, WebSocketClient>;
     private server: WebSocketServer;
 
     private database: Database;
 
-    public readonly channelChain: AuthChannel;
-    private authChannel: AuthChannel;
+    public readonly channelChain: SubscribeChannel;
     private subscribeChannel: SubscribeChannel;
     private unsubscribeChannel: SubscribeChannel;
 
@@ -37,28 +39,27 @@ export default class WebsocketAPI
     private usersChannel: SubscribableChannel;
     private messageChannel: SubscribableChannel;
 
-    constructor(config: Config, validationStrategies: ValidationStrategies, httpServer: http.Server | https.Server, database: Database)
+    constructor(config: Config, validationStrategies: ValidationStrategies, sessionStore: MemoryStore, httpServer: http.Server | https.Server, database: Database)
     {
         this.config = config;
         this.validationStrategies = validationStrategies;
+        this.sessionStore = sessionStore;
         this.httpServer = httpServer;
         this.clients = new Map();
         this.server = new WebSocketServer({ noServer: true });
 
         this.database = database;
 
-        this.authChannel = new AuthChannel("auth", this.database, this.validationStrategies.usernameValidationStrategy);
         this.subscribeChannel = new SubscribeChannel("subscribe");
         this.unsubscribeChannel = new SubscribeChannel("unsubscribe");
         this.chatroomsChannel = new SubscribableChannel("chatrooms");
         this.usersChannel = new UsersChannel("users");
         this.messageChannel = new SubscribableChannel("message");
 
-        this.channelChain = this.authChannel;
+        this.channelChain = this.subscribeChannel;
         this.subscribableChannelChain = this.chatroomsChannel;
 
         // build channel chain
-        this.authChannel.setNext(this.subscribeChannel);
         this.subscribeChannel.setNext(this.unsubscribeChannel);
         this.unsubscribeChannel.setNext(this.chatroomsChannel);
         this.chatroomsChannel.setNext(this.usersChannel);
@@ -73,75 +74,14 @@ export default class WebsocketAPI
 
         this.subscribeChannel.emitter.on("subscription", this.subscribableChannelChain.addSubscription.bind(this.subscribableChannelChain));
         this.unsubscribeChannel.emitter.on("subscription", this.subscribableChannelChain.removeSubscription.bind(this.subscribableChannelChain));
-        this.chatroomsChannel.emitter.on("add_subscription", this.onChatroomsChannelSubscription.bind(this));
-        this.messageChannel.emitter.on("add_subcsription", this.onMessageChannelSubscription.bind(this));
     }
 
-    private async onMessageChannelSubscription(topic: string, params: string[], client: WebSocketClient)
-    {
-        if(params.length <= 1)
-            return;
-
-        let dbMessages: DatabaseMessage[] | undefined = undefined;
-        if(this.validationStrategies.uuidValidationStrategy.validate(params[1]))
-        {
-            const dbMessagesResponse = await this.database.getMessagesByChatroomId(params[1]);
-            if(!dbMessagesResponse)
-                return;
-
-            dbMessages = dbMessagesResponse;
-        }
-        else if(this.validationStrategies.usernameValidationStrategy.validate(params[1]))
-        {
-            const dbMessagesResponse = await this.database.getMessagesByUsername(params[1]);
-            if(!dbMessagesResponse)
-                return;
-
-            dbMessages = dbMessagesResponse;
-        }
-        else return;
-
-        const fullTopic = params.join(".");
-        let message: SubscribableMessage = {
-            topic: fullTopic,
-            type: "snapshot",
-            payload: dbMessages.map(dbMsg => ({
-                id: dbMsg.id,
-                chatroom_id: dbMsg.chatroom_id,
-                username: dbMsg.username,
-                content: dbMsg.content,
-                creation_time: dbMsg.creation_time.getTime(),
-            })),
-        };
-
-        client.socket.send(JSON.stringify(message));
-    }
-
-    private async onChatroomsChannelSubscription(topic: string, params: string[], client: WebSocketClient)
-    {
-        const isAllChatroomsSubscription = params.length == 1;
-        const dbChatroomsResponse = isAllChatroomsSubscription ? await this.database.getChatrooms() : await this.database.getChatroomsByOwner(params[1]);
-
-        if(!dbChatroomsResponse)
-            return;
-
-        const chatrooms = dbChatroomsResponse;
-        const fullTopic = params.join(".");
-
-        let message: SubscribableMessage = {
-            topic: fullTopic,
-            type: "snapshot",
-            payload: chatrooms,
-        };
-
-        client.socket.send(JSON.stringify(message));
-    }
-
-    private onConnection(socket: WebSocket)
+    private onConnection(socket: WebSocket, username: string)
     {
         let client: WebSocketClient = {
             uuid: crypto.randomUUID(),
             socket: socket,
+            username: username,
         };
 
         this.clients.set(client.uuid, client);
@@ -169,18 +109,29 @@ export default class WebsocketAPI
 
     private onHttpServerUpgrade(request: http.IncomingMessage, socket: internal.Duplex, head: Buffer)
     {
-        if(!request.url || !request.headers.host)
-        {
-            socket.destroy();
-            return;
-        }
+        if(!request.url || !request.headers.host || !request.headers.cookie)
+            return socket.destroy();
+
+        const parsedCookies = cookie.parse(request.headers.cookie);
+        if(!parsedCookies.sid)
+            return socket.destroy();
+
+        const sessionId = signedCookie(parsedCookies.sid, this.config.session.secret);
+        if(!sessionId)
+            return socket.destroy();
 
         const protocol = this.httpServer instanceof https.Server ? "https" : "http";
         const url = new URL(request.url, `${protocol}://${request.headers.host}`);
 
-        if(url.pathname === this.config.websocket.path)
-            this.server.handleUpgrade(request, socket, head, (ws) => this.server.emit("connection", ws, request));
-        else
-            socket.destroy();
+        this.sessionStore.get(sessionId, (err, session) => {
+            //  only allow connections with authenticated sessions hence check if username is set
+            if(err || !session || !session.username)
+                return socket.destroy();
+            
+            if(url.pathname === this.config.websocket.path)
+                this.server.handleUpgrade(request, socket, head, (ws) => this.server.emit("connection", ws, session.username, request));
+            else
+                socket.destroy();
+        });
     }
 }

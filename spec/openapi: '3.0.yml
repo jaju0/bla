@@ -17,6 +17,25 @@ tags:
   - name: chatroom
     description: All chatroom related actions
 paths:
+  /login:
+    post:
+      tags:
+        - user
+      summary: Login as an existing user
+      description: Login as an existing user
+      operationId: login
+      requestBody:
+        description: Login as an existing user
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Login"
+      responses:
+        '200':
+          $ref: "#/components/responses/User"
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
   /user:
     post:
       tags:
@@ -30,7 +49,7 @@ paths:
         </ul>
       operationId: createUser
       requestBody:
-        description: Add a new user to chatapp
+        description: Add a new user to bla
         required: true
         content:
           application/json:
@@ -38,23 +57,22 @@ paths:
               $ref: "#/components/schemas/CreateUser"
       responses:
         '200':
-          $ref: "#/components/responses/UserData"
+          $ref: "#/components/responses/User"
         '400':
           description: Invalid request
+        '409':
+          description: A user with the passed username alredy exists
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
     put:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - user
       summary: Update your user data
       description:
         Update your user data
         <ul>
-          <li>Your username is mandatory and will be checked against your API Key</li>
-          <li>pass the other fields to update them</li>
-          <li>If you update your password expect a new API Key in your response</li>
           <li>Password must have at least 8 characters, max. 60 characters, 1 letter and 1 number</li>
         </ul>
       operationId: updateUser
@@ -67,7 +85,7 @@ paths:
               $ref: "#/components/schemas/UpdateUser"
       responses:
         '200':
-          $ref: "#/components/responses/UserData"
+          $ref: "#/components/responses/User"
         '400':
           description: Invalid request
         '401':
@@ -78,47 +96,36 @@ paths:
           description: Sorry, I fucked up badly! Don't hire me!
     get:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - user
       summary: Get a list of all users
       description: Get a list of all users
       operationId: getUsers
-      parameters:
-        - name: username
-          in: query
-          description: username to check against API Key in header
-          required: true
-          schema:
-            type: string
       responses:
         '200':
           $ref: "#/components/responses/UserList"
-        '400':
-          description: Invalid request
         '401':
           $ref: "#/components/responses/UnauthorizedError"
-        '404':
-          description: Username not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
   /user/{username}:
     delete:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - user
       summary: Delete yourself
       description:
         Delete yourself
         <ul>
-          <li>Your username is mandatory and will be checked against your API Key</li>
+          <li>Your username is mandatory and will be checked against the session data.</li>
         </ul>
       operationId: deleteUser
       parameters:
         - name: username
           in: path
-          description: name of user to delete
+          description: username to check against session data
           required: true
           schema:
             type: string
@@ -129,13 +136,11 @@ paths:
           description: Invalid request
         '401':
           $ref: "#/components/responses/UnauthorizedError"
-        '404':
-          description: Username not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
     get:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - user
       summary: Get specific user
@@ -145,12 +150,6 @@ paths:
         - name: username
           in: path
           description: name of user to return
-          required: true
-          schema:
-            type: string
-        - name: username
-          in: query
-          description: username to check against API Key in header
           required: true
           schema:
             type: string
@@ -168,7 +167,7 @@ paths:
   /message:
     post:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - message
       summary: Post a message
@@ -189,25 +188,19 @@ paths:
         '401':
           $ref: "#/components/responses/UnauthorizedError"
         '404':
-          description: Username or chatroom not found
+          description: chatroom not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
   /message/{id}:
     delete:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - message
       summary: Delete a message
       description: Delete a message
       operationId: deleteMessage
       parameters:
-        - name: username
-          in: query
-          description: username to check against API Key in header
-          required: true
-          schema:
-            type: string
         - name: id
           in: path
           description: ID of message to delete
@@ -222,12 +215,12 @@ paths:
         '401':
           $ref: "#/components/responses/UnauthorizedError"
         '404':
-          description: username or message not found
+          description: message not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
     get:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - message
       summary: Get message by ID
@@ -254,7 +247,7 @@ paths:
   /message/user/{username}:
     get:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - message
       summary: Get messages by username
@@ -267,12 +260,6 @@ paths:
           required: true
           schema:
             type: string
-        - name: username
-          in: query
-          description: username to check against API Key in header
-          required: true
-          schema:
-            type: string
       responses:
         '200':
           $ref: "#/components/responses/MessageList"
@@ -280,14 +267,12 @@ paths:
           description: Invalid request
         '401':
           $ref: "#/components/responses/UnauthorizedError"
-        '404':
-          description: username not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
   /message/chatroom/{chatroom_id}:
     get:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - message
       summary: Get messages by chatroom ID
@@ -300,12 +285,6 @@ paths:
           required: true
           schema:
             type: string
-        - name: username
-          in: query
-          description: username to check against API Key in header
-          required: true
-          schema:
-            type: string
       responses:
         '200':
           $ref: "#/components/responses/MessageList"
@@ -313,14 +292,12 @@ paths:
           description: Invalid request
         '401':
           $ref: "#/components/responses/UnauthorizedError"
-        '404':
-          description: username not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
   /chatroom:
     post:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - chatroom
       summary: Create a chatroom
@@ -340,54 +317,35 @@ paths:
           description: Invalid request
         '401':
           $ref: "#/components/responses/UnauthorizedError"
-        '404':
-          description: username not found
         '409':
           description: topic already exists
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
     get:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - chatroom
       summary: Get all chatrooms
       description: Get all chatrooms
       operationId: getChatrooms
-      parameters:
-        - name: username
-          in: query
-          description: username to check against API Key in header
-          required: true
-          schema:
-            type: string
       responses:
         '200':
           $ref: "#/components/responses/ChatroomList"
-        '400':
-          description: Invalid request
         '401':
           $ref: "#/components/responses/UnauthorizedError"
-        '404':
-          description: username not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
   /chatroom/{id}:
     delete:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - chatroom
       summary: Delete a chatroom
       description: Delete a chatroom
       operationId: deleteChatroom
       parameters:
-        - name: username
-          in: query
-          description: username to check against API Key in header
-          required: true
-          schema:
-            type: string
         - name: id
           in: path
           description: ID of chatroom to delete
@@ -402,13 +360,13 @@ paths:
         '401':
           $ref: "#/components/responses/UnauthorizedError"
         '404':
-          description: username or chatroom not found
+          description: chatroom not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
   /chatroom/{username}:
     get:
       security:
-        - apiKey: []
+        - sessionAuth: []
       tags:
         - chatroom
       summary: Get all chatrooms from a specific user
@@ -421,12 +379,6 @@ paths:
           required: true
           schema:
             type: string
-        - name: username
-          in: query
-          description: username to check against API Key in header
-          required: true
-          schema:
-            type: string
       responses:
         '200':
           $ref: "#/components/responses/ChatroomList"
@@ -434,17 +386,24 @@ paths:
           description: Invalid request
         '401':
           $ref: "#/components/responses/UnauthorizedError"
-        '404':
-          description: username not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
 components:
   securitySchemes:
-    apiKey:
+    sessionAuth:
       type: apiKey
-      in: header
-      name: X-API-KEY
+      in: cookie
+      name: sid
   schemas:
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+          example: AnneWand
+        password:
+          type: string
+          example: Your Password
     CreateUser:
       type: object
       properties:
@@ -463,9 +422,9 @@ components:
     UpdateUser:
       type: object
       properties:
-        username:
+        old_password:
           type: string
-          example: AnneWand
+          example: Your old password
         password:
           type: string
           example: Your New Password
@@ -483,24 +442,9 @@ components:
         description:
           type: string
           example: "Hello, this is me!"
-    UserData:
-      type: object
-      properties:
-        username:
-          type: string
-          example: AnneWand
-        description:
-          type: string
-          example: "Hello, this is me!"
-        api_key:
-          type: string
-          example: 94d467083c13ce23621fac89c529f7b6
     CreateMessage:
       type: object
       properties:
-        username:
-          type: string
-          example: AnneWand
         chatroom_id:
           type: string
           example: 0daab929-eb60-4ac2-b12f-ff49c07158c0
@@ -533,9 +477,6 @@ components:
     CreateChatroom:
       type: object
       properties:
-        username:
-          type: string
-          example: AnneWand
         topic:
           type: string
           example: How to find a job
@@ -553,9 +494,9 @@ components:
           example: AnneWand
   responses:
     UnauthorizedError:
-      description: API Key is missing, invalid or has no authorization to make this request
+      description: no authorized session found
     UserList:
-      description: List of all users on chatapp
+      description: List of all users on bla
       content:
         application/json:
           schema:
@@ -568,12 +509,6 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/User"
-    UserData:
-        description: User operation successful
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UserData"
     MessageList:
       description: List of all requested messages
       content:

@@ -64,7 +64,7 @@ export interface Message
 
 export interface SubscribableMessage extends Message
 {
-    type: "snapshot" | "insert" | "delete";
+    type: "insert" | "delete";
 }
 
 // CHANNELS
@@ -85,73 +85,6 @@ export default abstract class Channel
 
     public abstract publishMessage(client: WebSocketClient, msg: Message): void;
     public abstract subscribeMessage(msg: Message): void;
-}
-
-export class AuthChannel extends Channel
-{
-    private database: Database;
-    private usernameValidationStrategy: UsernameValidationBase;
-
-    constructor(topic: string, database: Database, usernameValidationStrategy: UsernameValidationBase)
-    {
-        super(topic);
-        this.database = database;
-        this.usernameValidationStrategy = usernameValidationStrategy;
-    }
-
-    public async publishMessage(client: WebSocketClient, msg: Message)
-    {
-        if(this.topic != msg.topic)
-        {
-            this.next?.publishMessage(client, msg);
-            return;
-        }
-
-        const payload = msg.payload as AuthPayload;
-
-        const isMessageDataValid = (
-            (payload.username && this.usernameValidationStrategy.validate(payload.username)) &&
-            (payload.api_key) && validateMD5(payload.api_key)
-        );
-
-        const respond = (success: boolean, responseMsg: string) => {
-            const response = {
-                topic: "auth",
-                payload: {
-                    success: success,
-                    msg: responseMsg,
-                },
-            };
-
-            client.socket.send(JSON.stringify(response));
-        }
-
-        if(!isMessageDataValid)
-            return respond(false, "invalid parameters");
-
-        const dbUserDataResponse = await this.database.getUserData(payload.username);
-        if(!dbUserDataResponse)
-            return respond(false, "user not found");
-        
-        const userData = dbUserDataResponse[0];
-        if(userData.username != payload.username)
-            return respond(false, "user not found");
-        
-
-        if(userData.api_key != payload.api_key)
-            return respond(false, "api key does not match");
-
-        client.username = userData.username;
-        client.api_key = userData.api_key;
-
-        return respond(true, "successful authenticated");
-    }
-
-    public subscribeMessage(msg: Message)
-    {
-        if(this.topic != msg.topic)
-            this.next?.subscribeMessage(msg);
-    }
 }
 
 export class SubscribeChannel extends Channel
@@ -186,9 +119,6 @@ export class SubscribeChannel extends Channel
 
             client.socket.send(JSON.stringify(response));
         }
-
-        if(!client.api_key)
-            return respond(false, "not authenticated");
 
         for(const topic of payload.topics)
         {
@@ -318,13 +248,6 @@ export class UsersChannel extends SubscribableChannel
     {
         const path = params.join(".");
 
-        if(!client.username || !client.api_key)
-            return;
-
-        const snapshotMessage = this.getUserSnapshotMessage(path);
-        if(snapshotMessage)
-            client.socket.send(JSON.stringify(snapshotMessage));
-
         const message: SubscribableMessage = {
             topic: path,
             type: "insert",
@@ -340,9 +263,6 @@ export class UsersChannel extends SubscribableChannel
     {
         const path = params.join(".");
 
-        if(!client.username || !client.api_key)
-            return;
-
         const message: SubscribableMessage = {
             topic: path,
             type: "delete",
@@ -352,25 +272,5 @@ export class UsersChannel extends SubscribableChannel
         };
 
         this.subscribeMessage(message);
-    }
-
-    private getUserSnapshotMessage(path: string)
-    {
-        const clientsMap = this.subscriptions.get(path);
-        if(!clientsMap)
-            return;
-
-        let users = new Array<UserInfoInsertionPayload>();
-        for(const client of clientsMap.values())
-            if(client.username)
-                users.push({ username: client.username });
-
-        let message: SubscribableMessage = {
-            topic: path,
-            type: "snapshot",
-            payload: users,
-        };
-
-        return message;
     }
 }

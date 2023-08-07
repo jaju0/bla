@@ -1,231 +1,349 @@
-import http from "http";
+import axios from "axios";
+import setCookie from "set-cookie-parser";
 
-const host = "localhost";
-const port = 4815;
-
-let userData: any = {
-    username: randomAlphanumeric(8),
-    password: `${randomAlphanumeric(16)}a1`,
-    description: "unit test user",
+interface RestCompleteTestParams
+{
+    url: string;
+    username: string;
+    user_password: string;
+    user_description: string;
 }
 
-let chatroomData: any;
-let messageData: any;
-
-function randomAlphanumeric(length: number)
+class RestCompleteTest
 {
-    return Math.random().toString(length*2).slice(2);
-}
+    private params: RestCompleteTestParams;
+    private sessionId?: string;
+    private chatroomId?: string;
+    private messageId?: string;
 
-function makeRequest(path: string, method: string, finished: (response: any) => void, requestBody?: string, apiKey?: string)
-{
-    let headers: any = {
-        "content-type": "application/json",
-    };
+    constructor(params: RestCompleteTestParams)
+    {
+        this.params = params;
+    }
 
-    if(apiKey)
-        headers["x-api-key"] = apiKey;
+    public async createUser()
+    {
+        const userCreationData = {
+            username: this.params.username,
+            password: this.params.user_password,
+            description: this.params.user_description,
+        };
 
-    const request = http.request({
-        host: host,
-        port: port,
-        path: path,
-        method: method,
-        headers: headers,
-    }, (res) => {
-        if(res.statusCode != 200)
-        {
-            console.error(`[ERROR]: ${path} ${method} status code: ${res.statusCode}`);
-            res.resume();
-            return;
-        }
-        else
-            console.log(`[OK]: ${path} ${method}`);
+        const headers = {
+            "content-type": "application/json"
+        };
 
-        let data = "";
+        const response = await axios.post(this.params.url + "/user", userCreationData, {headers});
+        if(response.status != 200)
+            throw new Error(`user creation failed with response code: ${response.status}`);
 
-        res.on("data", (chunk) => {
-            data += chunk;
+        const setCookieHeader = response.headers["set-cookie"];
+        if(!setCookieHeader)
+            throw new Error("set-cookie header was not received in user creation response");
+
+        const cookies = setCookie.parse(setCookieHeader, {
+            decodeValues: false,
+            map: true,
         });
 
-        res.on("close", () => {
-            const response = data.length ? JSON.parse(data) : data;
-            finished(response);
-        });
+        if(!cookies.sid)
+            throw new Error("session id cookie not found in user creation response");
+
+        this.sessionId = cookies.sid.value;
+        console.log("[OK] POST /user");
+    }
+
+    public async changeUser()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        const userAmendmentData = {
+            old_password: this.params.user_password,
+            password: this.params.user_password+"amended",
+            description: "Amended description",
+        };
+
+        const headers = {
+            "content-type": "application/json",
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.put(this.params.url + "/user", userAmendmentData, {headers});
+        if(response.status != 200)
+            throw new Error(`user amendment failed with response code: ${response.status}`);
+
+        console.log("[OK] PUT /user");
+    }
+
+    public async deleteUser()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.delete(this.params.url + `/user/${this.params.username}`, {headers});
+        if(response.status != 200)
+            throw new Error(`user deletion failed with response code: ${response.status}`);
+
+        console.log("[OK] DELETE /user/:username");
+    }
+
+    public async getUsers()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + "/user", {headers});
+        if(response.status != 200)
+            throw new Error(`user list request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /user");
+    }
+
+    public async getUserByName()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + `/user/${this.params.username}`, {headers});
+        if(response.status != 200)
+            throw new Error(`user by name request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /user/:username");
+    }
+
+    public async postMessage()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.chatroomId)
+            throw new Error("a test chatroom must be created before posting a test message");
+
+        const messageCreationData = {
+            chatroom_id: this.chatroomId,
+            content: "Test Message!",
+        };
+
+        const headers = {
+            "content-type": "application/json",
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.post(this.params.url + "/message", messageCreationData, {headers});
+        if(response.status != 200)
+            throw new Error(`message creation failed with response code: ${response.status}`);
+
+        if(!response.data.id)
+            throw new Error("could not receive message id");
+
+        this.messageId = response.data.id;
+
+        console.log("[OK] POST /message");
+    }
+
+    public async deleteMessage()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.messageId)
+            throw new Error("a test message must be created before it can be deleted");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.delete(this.params.url + `/message/${this.messageId}`, {headers});
+        if(response.status != 200)
+            throw new Error(`message deletion failed with response code: ${response.status}`);
+
+        this.messageId = undefined;
+
+        console.log("[OK] DELETE /message/:id");
+    }
+
+    public async getMessageById()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.messageId)
+            throw new Error("a test message must be created before it can be requested");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + `/message/${this.messageId}`, {headers});
+        if(response.status != 200)
+            throw new Error(`message by id request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /message/:id");
+    }
+
+    public async getMessagesByUsername()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.messageId)
+            throw new Error("a test message must be created before it can be requested");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + `/message/user/${this.params.username}`, {headers});
+        if(response.status != 200)
+            throw new Error(`message by username request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /message/user/:username");
+    }
+
+    public async getMesssagesByChatroomId()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.chatroomId)
+            throw new Error("a chatroom must be created before messages can be requested");
+
+        if(!this.messageId)
+            throw new Error("a test message must be created before it can be requested");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + `/message/chatroom/${this.chatroomId}`, {headers});
+        if(response.status != 200)
+            throw new Error(`message by chatroom id request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /message/chatroom/:chatroom_id");
+    }
+
+    public async postChatroom()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        const chatroomCreationData = {
+            topic: "Test Chatroom",
+        };
+
+        const headers = {
+            "content-type": "application/json",
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.post(this.params.url + "/chatroom", chatroomCreationData, {headers});
+        if(response.status != 200)
+            throw new Error(`chatroom creation failed with response code: ${response.status}`);
+
+        if(!response.data.id)
+            throw new Error("could not receive chatroom id");
+
+        this.chatroomId = response.data.id;
+
+        console.log("[OK] POST /chatroom");
+    }
+
+    public async deleteChatroom()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.chatroomId)
+            throw new Error("a chatroom must be created before it can be deleted");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.delete(this.params.url + `/chatroom/${this.chatroomId}`, {headers});
+        if(response.status != 200)
+            throw new Error(`chatroom deletion failed with response code: ${response.status}`);
+
+        this.chatroomId = undefined;
+
+        console.log("[OK] DELETE /chatroom/:id");
+    }
+
+    public async getChatrooms()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.chatroomId)
+            throw new Error("a chatroom must be created before it can be requested");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + `/chatroom`, {headers});
+        if(response.status != 200)
+            throw new Error(`chatroom list request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /chatroom");
+    }
+
+    public async getChatroomsByUsername()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.chatroomId)
+            throw new Error("a chatroom must be created before it can be requested");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + `/chatroom/${this.params.username}`, {headers});
+        if(response.status != 200)
+            throw new Error(`chatroom list by username request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /chatroom/:username");
+    }
+
+}
+
+(async () =>{
+
+    const test = new RestCompleteTest({
+        url: "http://localhost:4815",
+        username: "TestUser",
+        user_password: "TestPassword123",
+        user_description: "Hello, this is me!",
     });
 
-    if(requestBody)
-        request.write(requestBody);
+    await test.createUser();
+    await test.changeUser();
+    await test.getUsers();
+    await test.getUserByName();
+    await test.postChatroom();
+    await test.getChatrooms();
+    await test.getChatroomsByUsername();
+    await test.postMessage();
+    await test.getMessageById();
+    await test.getMessagesByUsername();
+    await test.getMesssagesByChatroomId();
+    await test.deleteMessage();
+    await test.deleteChatroom();
+    await test.deleteUser();
 
-    request.end();
-
-    request.on("error", (error) => {
-        console.error(error.message);
-    });
-}
-
-function createUser(finished: (response: any) => void)
-{
-    makeRequest("/user", "POST", finished, JSON.stringify(userData));
-}
-
-function deleteUser(apiKey: string, username: string, finished: (response: any) => void)
-{
-    makeRequest(`/user/${username}`, "DELETE", finished, undefined, apiKey);
-}
-
-function changeUser(apiKey: string, username: string, finished: (response: any) => void, password?: string, description?: string)
-{
-    const putData = {
-        username: username,
-        password: password,
-        description: description,
-    };
-
-    makeRequest("/user", "PUT", finished, JSON.stringify(putData), apiKey);
-}
-
-function getUserList(apiKey: string, username: string, finished: (response: any) => void)
-{
-    makeRequest(`/user?username=${username}`, "GET", finished, undefined, apiKey);
-}
-
-function getUser(apiKey: string, username: string, finished: (response: any) => void)
-{
-    makeRequest(`/user/${username}?username=${username}`, "GET", finished, undefined, apiKey);
-}
-
-function createChatroom(apiKey: string, username: string, finished: (response: any) => void, topic: string)
-{
-    const chatroomData = {
-        username: username,
-        topic: topic,
-    };
-
-    makeRequest("/chatroom", "POST", finished, JSON.stringify(chatroomData), apiKey);
-}
-
-function deleteChatroom(apiKey: string, username: string, finished: (response: any) => void, id: string)
-{
-    makeRequest(`/chatroom/${id}?username=${username}`, "DELETE", finished, undefined, apiKey);
-}
-
-function getChatroomList(apiKey: string, username: string, finished: (response: any) => void)
-{
-    makeRequest(`/chatroom?username=${username}`, "GET", finished, undefined, apiKey);
-}
-
-function getChatroomListByUsername(apiKey: string, username: string, finished: (response: any) => void)
-{
-    makeRequest(`/chatroom/${username}?username=${username}`, "GET", finished, undefined, apiKey);
-}
-
-function createMessage(apiKey: string, username: string, finished: (response: any) => void, chatroomId: string, content: string)
-{
-    const messageData = {
-        username: username,
-        chatroom_id: chatroomId,
-        content: content,
-    };
-
-    makeRequest("/message", "POST", finished, JSON.stringify(messageData), apiKey);
-}
-
-function deleteMessage(apiKey: string, username: string, finished: (response: any) => void, id: string)
-{
-    makeRequest(`/message/${id}?username=${username}`, "DELETE", finished, undefined, apiKey);
-}
-
-function getMessageById(apiKey: string, username: string, finished: (response: any) => void, id: string)
-{
-    makeRequest(`/message/${id}?username=${username}`, "GET", finished, undefined, apiKey);
-}
-
-function getMessageListByUsername(apiKey: string, username: string, finished: (response: any) => void)
-{
-    makeRequest(`/message/user/${username}?username=${username}`, "GET", finished, undefined, apiKey);
-}
-
-function getMessageListByChatroomId(apiKey: string, username: string, finished: (response: any) => void, chatroomId: string)
-{
-    makeRequest(`/message/chatroom/${chatroomId}?username=${username}`, "GET", finished, undefined, apiKey);
-}
-
-
-function onDeleteUser(response: any)
-{
-    console.log("all requests successful!");
-}
-
-function onDeleteChatroom(response: any)
-{
-    deleteUser(userData.apiKey, userData.username, onDeleteUser);
-}
-
-function onDeleteMessage(response: any)
-{
-    deleteChatroom(userData.apiKey, userData.username, onDeleteChatroom, chatroomData.id);
-}
-
-function onGetMessageListByChatroomId(response: any)
-{
-    deleteMessage(userData.apiKey, userData.username, onDeleteMessage, messageData.id);
-}
-
-function onGetMessageListByUsername(response: any)
-{
-    getMessageListByChatroomId(userData.apiKey, userData.username, onGetMessageListByChatroomId, chatroomData.id);
-}
-
-function onGetMessageById(response: any)
-{
-    getMessageListByUsername(userData.apiKey, userData.username, onGetMessageListByUsername);
-}
-
-function onCreateMessage(response: any)
-{
-    messageData = response;
-    getMessageById(userData.apiKey, userData.username, onGetMessageById, response.id);
-}
-
-function onGetChatroomListByUsername(response: any)
-{
-    createMessage(userData.apiKey, userData.username, onCreateMessage, chatroomData.id, `test message of user test user ${userData.username}`);
-}
-
-function onGetChatroomList(response: any)
-{
-    getChatroomListByUsername(userData.apiKey, userData.username, onGetChatroomListByUsername);
-}
-
-function onCreateChatroom(response: any)
-{
-    chatroomData = response;
-    getChatroomList(userData.apiKey, userData.username, onGetChatroomList);
-}
-
-function onGetUserList(response: any)
-{
-    createChatroom(userData.apiKey, userData.username, onCreateChatroom, `test topic of user ${userData.username}`);
-}
-
-function onGetUser(response: any)
-{
-    getUserList(userData.apiKey, userData.username, onGetUserList);
-}
-
-function onChangeUser(response: any)
-{
-    userData.apiKey = response.api_key;
-    getUser(userData.apiKey, userData.username, onGetUser);
-}
-
-function onCreateUser(response: any)
-{
-    const newPassword = `${randomAlphanumeric(16)}a1`;
-    userData.password = newPassword;
-    userData.description = "amended test user description";
-    changeUser(response.api_key, response.username, onChangeUser, newPassword, userData.description);
-}
-
-createUser(onCreateUser);
+})();

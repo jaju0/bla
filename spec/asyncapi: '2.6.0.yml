@@ -1,22 +1,16 @@
 asyncapi: "2.6.0"
 info:
-  title: ChatApp Async API
+  title: bla Async API
   version: "1.0.0"
   description: |
-    ChatApp's asynchronous API
+    bla's asynchronous API
+
+    This API requires authentication. To authenticate a connection, a session ID cookie named "sid" must be set in the header of the upgrade requests. The cookie must contain a valid session ID that references an authenticated session on the server. To create such a session, please refer to the "/login" endpoint in the REST API specification.
 servers:
   websocket:
     url: localhost
     protocol: ws
 channels:
-  auth:
-    publish:
-      summary: |
-        Authenticate the established connection via API Key.
-        Expect to receive an auth-response message (see messages section) after this operation has finished.
-      operationId: onAuth
-      message:
-        $ref: "#/components/messages/auth"
   subscribe:
     publish:
       summary: |
@@ -39,7 +33,6 @@ channels:
       operationId: onChatrooms
       message:
         oneOf:
-          - $ref: "#/components/messages/chatroom-info-snapshot"
           - $ref: "#/components/messages/chatroom-info-insertion"
           - $ref: "#/components/messages/chatroom-info-deletion"
   chatrooms.{username}:
@@ -53,7 +46,6 @@ channels:
       operationId: onChatroomsByUser
       message:
         oneOf:
-          - $ref: "#/components/messages/chatroom-info-snapshot"
           - $ref: "#/components/messages/chatroom-info-insertion"
           - $ref: "#/components/messages/chatroom-info-deletion"
   users.{chatroom_id}:
@@ -83,9 +75,8 @@ channels:
       operationId: onChatroomMessage
       message:
         oneOf:
-          - $ref: "#/components/messages/chatapp-message-snapshot"
-          - $ref: "#/components/messages/chatapp-message-insertion"
-          - $ref: "#/components/messages/chatapp-message-deletion"
+          - $ref: "#/components/messages/bla-message-insertion"
+          - $ref: "#/components/messages/bla-message-deletion"
   message.{username}:
     parameters:
       username:
@@ -97,38 +88,10 @@ channels:
       operationId: onUserMessage
       message:
         oneOf:
-          - $ref: "#/components/messages/chatapp-message-snapshot"
-          - $ref: "#/components/messages/chatapp-message-insertion"
-          - $ref: "#/components/messages/chatapp-message-deletion"
+          - $ref: "#/components/messages/bla-message-insertion"
+          - $ref: "#/components/messages/bla-message-deletion"
 components:
   messages:
-    auth:
-      headers:
-        type: object
-        properties:
-          topic:
-            type: string
-          payload:
-            oneOf:
-              - type: object
-              - type: array
-      payload:
-        type: object
-        properties:
-          username:
-            type: string
-            example: AnneWand
-          api_key:
-            type: string
-            example: 33052dba322707c3957e39022452dbc3
-    auth-response:
-      payload:
-        type: object
-        properties:
-          success:
-            type: boolean
-          msg:
-            type: string
     subscribe:
       headers:
         type: object
@@ -158,43 +121,7 @@ components:
             type: boolean
           msg:
             type: string
-    chatapp-message-snapshot:
-      headers:
-        type: object
-        properties:
-          topic:
-            type: string
-          type:
-            type: string
-            example: snapshot
-          payload:
-            oneOf:
-              - type: object
-              - type: array
-      payload:
-        type: array
-        items:
-          type: object
-          properties:
-            id:
-              type: string
-              format: UUID
-              example: "08584e61-d3a8-4d32-bbb9-af3f80f7331d"
-            username:
-              type: string
-              example: AnneWand
-            chatroom_id:
-              type: string
-              format: UUID
-              example: "7e5ad11d-46be-4cb7-a019-b22b8a0a391b"
-            content:
-              type: string
-              example: "Hello everyone!"
-            creation_time:
-              type: integer
-              format: int64
-              example: 1689363578345
-    chatapp-message-insertion:
+    bla-message-insertion:
       headers:
         type: object
         properties:
@@ -228,7 +155,7 @@ components:
             type: integer
             format: int64
             example: 1689363578345
-    chatapp-message-deletion:
+    bla-message-deletion:
       headers:
         type: object
         properties:
@@ -262,34 +189,6 @@ components:
             type: integer
             format: int64
             example: 1689363578345
-    chatroom-info-snapshot:
-      headers:
-        type: object
-        properties:
-          topic:
-            type: string
-          type:
-            type: string
-            example: insertion
-          payload:
-            oneOf:
-              - type: object
-              - type: array
-      payload:
-        type: array
-        items:
-          type: object
-          properties:
-            id:
-              type: string
-              format: UUID
-              example: "7d77a53c-0e6b-4fd7-bef9-62faef73054a"
-            topic:
-              type: string
-              example: How to find a job
-            owner_username:
-              type: string
-              example: AnneWand
     chatroom-info-insertion:
       headers:
         type: object

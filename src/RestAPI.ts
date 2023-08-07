@@ -3,15 +3,17 @@ import { EventEmitter } from "events";
 import express, { Express, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
+import bcrypt from "bcrypt";
 import Database from "./Database.js";
 import { ValidationStrategies } from "./Api.js";
 import Config from "./Config.js";
 
 
 // REQUEST SCHEMAS
-export interface AuthRequest
+export interface Login
 {
     username: string;
+    password: string;
 }
 
 export interface CreateUser
@@ -21,57 +23,60 @@ export interface CreateUser
     description?: string;
 }
 
-export interface UpdateUser extends AuthRequest
+export interface UpdateUser
 {
-    username: string;
+    old_password?: string;
     password?: string;
     description?: string;
 }
 
-export interface GetUserByName extends AuthRequest
+export interface DeleteUser
 {
     username: string;
 }
 
-export interface CreateMessage extends AuthRequest
+export interface GetUserByName
 {
     username: string;
+}
+
+export interface CreateMessage
+{
     chatroom_id: string;
     content: string;
 }
 
-export interface DeleteMessage extends AuthRequest
+export interface DeleteMessage
 {
     id: string;
 }
 
-export interface GetMessageById extends AuthRequest
+export interface GetMessageById
 {
     id: string;
 }
 
-export interface GetMessageByUsername extends AuthRequest
+export interface GetMessageByUsername
 {
     username: string;
 }
 
-export interface GetMessageByChatroomId extends AuthRequest
+export interface GetMessageByChatroomId
 {
     chatroom_id: string;
 }
 
-export interface CreateChatroom extends AuthRequest
+export interface CreateChatroom
 {
-    username: string;
     topic: string;
 }
 
-export interface DeleteChatroom extends AuthRequest
+export interface DeleteChatroom
 {
     id: string;
 }
 
-export interface GetChatroomsByUsername extends AuthRequest
+export interface GetChatroomsByUsername
 {
     username: string;
 }
@@ -88,7 +93,7 @@ export interface UserData
 {
     username: string;
     description: string;
-    api_key: string;
+    password_hash: string;
 }
 
 export interface Message
@@ -107,15 +112,22 @@ export interface Chatroom
     owner_username: string;
 }
 
+declare module "express-session"
+{
+    interface SessionData
+    {
+        username: string;
+    }
+}
 
 export declare interface RestAPI
 {
-    on(event: "create_user", listener: (userData: UserData) => void): this;
-    once(event: "create_user", listener: (userData: UserData) => void): this;
-    emit(event: "create_user", userData: UserData): boolean;
-    on(event: "update_user", listener: (userData: UserData) => void): this;
-    once(event: "update_user", listener: (userData: UserData) => void): this;
-    emit(event: "update_user", userData: UserData): boolean;
+    on(event: "create_user", listener: (user: User) => void): this;
+    once(event: "create_user", listener: (user: User) => void): this;
+    emit(event: "create_user", user: User): boolean;
+    on(event: "update_user", listener: (user: User) => void): this;
+    once(event: "update_user", listener: (user: User) => void): this;
+    emit(event: "update_user", user: User): boolean;
     on(event: "delete_user", listener: (username: string) => void): this;
     once(event: "delete_user", listener: (username: string) => void): this;
     emit(event: "delete_user", username: string): boolean;
@@ -153,6 +165,7 @@ export class RestAPI extends EventEmitter
         const rateLimiterCfg = this.config.rate_limiters;
 
         // USER ENDPOINTS
+        this.expressInstance.post("/login", rateLimit(rateLimiterCfg.post.login ? rateLimiterCfg.post.login : rateLimiterCfg), this.login.bind(this));
         this.expressInstance.post("/user", rateLimit(rateLimiterCfg.post.user ? rateLimiterCfg.post.user : rateLimiterCfg), this.createUser.bind(this));
         this.expressInstance.put("/user", rateLimit(rateLimiterCfg.put.user ? rateLimiterCfg.put.user : rateLimiterCfg), this.updateUser.bind(this));
         this.expressInstance.delete("/user/:username", rateLimit(rateLimiterCfg.delete.user.username ? rateLimiterCfg.delete.user.username : rateLimiterCfg), this.deleteUser.bind(this) as any);
@@ -173,8 +186,30 @@ export class RestAPI extends EventEmitter
         this.expressInstance.get("/chatroom/:username", rateLimit(rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg), this.getChatroomsByUsername.bind(this) as any);
     }
 
+    private async login(req: Request<any, any, Login>, res: Response<User>)
+    {
+        const isRequestDataValid = (
+            this.validationStrategies.usernameValidationStrategy.validate(req.body.username) &&
+            this.validationStrategies.passwordValidationStrategy.validate(req.body.password)
+        );
+
+        if(!isRequestDataValid)
+            return res.status(401).send();
+
+        const userData = await this.verifyUser(req.body.username, req.body.password, res);
+        if(!userData)
+            return res.status(401).send();
+
+        req.session.username = userData.username;
+
+        return res.status(200).send({
+            username: userData.username,
+            description: userData.user_description,
+        });
+    }
+
     // USER OPERATIONS
-    private async createUser(req: Request<any, any, CreateUser>, res: Response<UserData>)
+    private async createUser(req: Request<any, any, CreateUser>, res: Response<User>)
     {
         const isRequestDataValid = (
             this.validationStrategies.usernameValidationStrategy.validate(req.body.username) &&
@@ -185,51 +220,71 @@ export class RestAPI extends EventEmitter
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const apiKey = RestAPI.createApiKey(req.body.username, req.body.password);
+        const passwordHash = await this.createPasswordHash(req.body.password);
 
-        let newUser: UserData = {
+        const dbUsers = await this.database.getUser(req.body.username);
+        if(dbUsers === undefined)
+            return res.status(500).send();
+
+        if(dbUsers.length)
+            return res.status(409).send();
+
+        let newUser: User = {
             username: req.body.username,
-            api_key: apiKey,
             description: req.body.description ? req.body.description : "",
         };
 
         const dbInsertionResult = await this.database.insertUser({
             username: newUser.username,
-            api_key: newUser.api_key,
+            password_hash: passwordHash,
             user_description: newUser.description,
         });
 
         if(!dbInsertionResult)
             return res.status(500).send();
 
+        req.session.username = newUser.username;
         this.emit("create_user", newUser);
+
         return res.status(200).json(newUser);
     }
 
-    private async updateUser(req: Request<any, any, UpdateUser>, res: Response<UserData>)
+    private async updateUser(req: Request<any, any, UpdateUser>, res: Response<User>)
     {
+        const sessionUsername = req.session.username;
+
+        if(sessionUsername == undefined)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.body.username) &&
             (req.body.password ? this.validationStrategies.passwordValidationStrategy.validate(req.body.password) : true) &&
             (req.body.description ? this.validationStrategies.descriptionValidationStrategy.validate(req.body.description) : true)
         );
 
-        const requestApiKey = req.headers["x-api-key"];
-
         if(!isRequestDataValid)
             return res.status(400).send();
+            
+        const dbUserDataResponse = await this.database.getUserData(sessionUsername);
+        if(dbUserDataResponse === undefined)
+            return res.status(500).send();
 
-        const userData = await this.checkApiKey(req.body.username, requestApiKey, res);
-        if(!userData)
-            return;
+        if(!dbUserDataResponse.length)
+            return res.status(404).send();
+            
+        const userData = dbUserDataResponse[0];
 
-        let newApiKey: string | undefined = undefined;
-        if(req.body.password)
-            newApiKey = RestAPI.createApiKey(req.body.username, req.body.password);
+        let newPasswordHash: string | undefined = undefined;
+        if(req.body.old_password && req.body.password)
+        {
+            if(!(await this.verifyUser(sessionUsername, req.body.old_password, res)))
+                return;
+
+            newPasswordHash = await this.createPasswordHash(req.body.password);
+        }
 
         const dbUpdateResponse = await this.database.updateUser({
-            username: req.body.username,
-            api_key: newApiKey,
+            username: sessionUsername,
+            password_hash: newPasswordHash,
             user_description: req.body.description,
         });
 
@@ -237,29 +292,30 @@ export class RestAPI extends EventEmitter
             return res.status(500).send();
 
         this.emit("update_user", {
-            username: userData.username,
-            api_key: newApiKey ? newApiKey : userData.api_key,
+            username: sessionUsername,
             description: req.body.description ? req.body.description : userData.user_description,
         });
 
         return res.status(200).json({
-            username: req.body.username,
-            api_key: newApiKey ? newApiKey : userData.api_key,
+            username: sessionUsername,
             description: req.body.description ? req.body.description : userData.user_description,
         });
     }
 
-    private async deleteUser(req: Request<AuthRequest>, res: Response)
+    private async deleteUser(req: Request<DeleteUser>, res: Response)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = this.validationStrategies.usernameValidationStrategy.validate(req.params.username);
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.params.username, requestApiKey, res);
-        if(!userData)
-            return;
+        if(sessionUsername != req.params.username)
+            return res.status(401).send();
         
         const dbUserDeletionResponse = await this.database.deleteUser(req.params.username);
         if(!dbUserDeletionResponse)
@@ -270,20 +326,15 @@ export class RestAPI extends EventEmitter
         return res.status(200).send();
     }
     
-    private async getUsers(req: Request<any, any, any, AuthRequest>, res: Response<User[]>)
+    private async getUsers(req: Request, res: Response<User[]>)
     {
-        const isRequestDataValid = this.validationStrategies.usernameValidationStrategy.validate(req.query.username);
-        const requestApiKey = req.headers["x-api-key"];
+        const sessionUsername = req.session.username;
 
-        if(!isRequestDataValid)
-            return res.status(400).send();
-
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
+        if(!sessionUsername)
+            return res.status(401).send();
 
         const dbUserListResponse = await this.database.getAllUsers();
-        if(!dbUserListResponse)
+        if(dbUserListResponse === undefined)
             return res.status(500).send();
 
         return res.status(200).json(dbUserListResponse.map(user => {
@@ -296,24 +347,22 @@ export class RestAPI extends EventEmitter
         }));
     }
 
-    private async getUserByName(req: Request<GetUserByName, any, any, AuthRequest>, res: Response<User>)
+    private async getUserByName(req: Request<GetUserByName>, res: Response<User>)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.query.username) &&
             this.validationStrategies.usernameValidationStrategy.validate(req.params.username)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.params.username, requestApiKey, res);
-        if(!userData)
-            return;
-
         const dbUserResponse = await this.database.getUser(req.params.username);
-        if(!dbUserResponse)
+        if(dbUserResponse === undefined)
             return res.status(500).send();
 
         if(!dbUserResponse.length)
@@ -332,23 +381,21 @@ export class RestAPI extends EventEmitter
     // MESSAGE OPERATIONS
     private async postMessage(req: Request<any, any, CreateMessage>, res: Response)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.body.username) &&
             this.validationStrategies.uuidValidationStrategy.validate(req.body.chatroom_id) &&
             this.validationStrategies.contentValidationStrategy.validate(req.body.content)
         );
 
-        const requestApiKey = req.headers["x-api-key"];
-
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.body.username, requestApiKey, res);
-        if(!userData)
-            return;
-        
         const dbChatroomResponse = await this.database.getChatroomById(req.body.chatroom_id);
-        if(!dbChatroomResponse)
+        if(dbChatroomResponse === undefined)
             return res.status(500).send();
 
         if(!dbChatroomResponse.length)
@@ -356,7 +403,7 @@ export class RestAPI extends EventEmitter
 
         let apiMessage: Message = {
             id: crypto.randomUUID(),
-            username: req.body.username,
+            username: sessionUsername,
             chatroom_id: req.body.chatroom_id,
             content: req.body.content,
             creation_time: Date.now(),
@@ -378,31 +425,29 @@ export class RestAPI extends EventEmitter
         return res.status(200).json(apiMessage);
     }
 
-    private async deleteMessage(req: Request<DeleteMessage, any, any, AuthRequest>, res: Response)
+    private async deleteMessage(req: Request<DeleteMessage>, res: Response)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.query.username) &&
             this.validationStrategies.uuidValidationStrategy.validate(req.params.id)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
-
         const dbMessageResponse = await this.database.getMessageById(req.params.id);
-        if(!dbMessageResponse)
+        if(dbMessageResponse === undefined)
             return res.status(500).send();
 
         if(!dbMessageResponse.length)
             return res.status(404).send();
 
         const message = dbMessageResponse[0];
-        if(message.username != req.query.username)
+        if(message.username != sessionUsername)
             return res.status(401).send();
 
         const dbMessageDeletionResponse = await this.database.deleteMessage(message.id);
@@ -420,24 +465,22 @@ export class RestAPI extends EventEmitter
         return res.status(200).send();
     }
 
-    private async getMessageById(req: Request<GetMessageById, any, any, AuthRequest>, res: Response<Message>)
+    private async getMessageById(req: Request<GetMessageById>, res: Response<Message>)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.query.username) &&
             this.validationStrategies.uuidValidationStrategy.validate(req.params.id)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
-
         const dbMessageResponse = await this.database.getMessageById(req.params.id);
-        if(!dbMessageResponse)
+        if(dbMessageResponse === undefined)
             return res.status(500).send();
 
         if(!dbMessageResponse.length)
@@ -456,24 +499,22 @@ export class RestAPI extends EventEmitter
         return res.status(200).json(apiMessage);
     }
 
-    private async getMessagesByUsername(req: Request<GetMessageByUsername, any, any, AuthRequest>, res: Response<Message[]>)
+    private async getMessagesByUsername(req: Request<GetMessageByUsername>, res: Response<Message[]>)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.query.username) &&
             this.validationStrategies.usernameValidationStrategy.validate(req.params.username)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
-
         const messages = await this.database.getMessagesByUsername(req.params.username);
-        if(!messages)
+        if(messages === undefined)
             return res.status(500).send();
 
         return res.status(200).json(messages.map(message => {
@@ -489,24 +530,22 @@ export class RestAPI extends EventEmitter
         }));
     }
 
-    private async getMessagesByChatroomId(req: Request<GetMessageByChatroomId, any, any, AuthRequest>, res: Response<Message[]>)
+    private async getMessagesByChatroomId(req: Request<GetMessageByChatroomId>, res: Response<Message[]>)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.query.username) &&
             this.validationStrategies.uuidValidationStrategy.validate(req.params.chatroom_id)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
-
         const messages = await this.database.getMessagesByChatroomId(req.params.chatroom_id);
-        if(!messages)
+        if(messages === undefined)
             return res.status(500).send();
 
         return res.status(200).json(messages.map(message => {
@@ -525,22 +564,20 @@ export class RestAPI extends EventEmitter
     // CHATROOM OPERATIONS
     private async postChatroom(req: Request<any, any, CreateChatroom>, res: Response<Chatroom>)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.body.username) &&
             this.validationStrategies.topicValidationStrategy.validate(req.body.topic)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.body.username, requestApiKey, res);
-        if(!userData)
-            return;
-
         const dbChatroomByTopicResponse = await this.database.getChatroomByTopic(req.body.topic);
-        if(!dbChatroomByTopicResponse)
+        if(dbChatroomByTopicResponse === undefined)
             return res.status(500).send();
         
         if(dbChatroomByTopicResponse.length)
@@ -548,7 +585,7 @@ export class RestAPI extends EventEmitter
         
         let apiChatroom: Chatroom = {
             id: crypto.randomUUID(),
-            owner_username: req.body.username,
+            owner_username: sessionUsername,
             topic: req.body.topic,
         };
         
@@ -561,31 +598,29 @@ export class RestAPI extends EventEmitter
         return res.status(200).json(apiChatroom);
     }
 
-    private async deleteChatroom(req: Request<DeleteChatroom, any, any, AuthRequest>, res: Response)
+    private async deleteChatroom(req: Request<DeleteChatroom>, res: Response)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.query.username) &&
             this.validationStrategies.uuidValidationStrategy.validate(req.params.id)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
-        
         const dbChatroomResponse = await this.database.getChatroomById(req.params.id);
-        if(!dbChatroomResponse)
+        if(dbChatroomResponse === undefined)
             return res.status(500).send();
 
         if(!dbChatroomResponse.length)
             return res.status(404).send();
 
         const chatroom = dbChatroomResponse[0];
-        if(chatroom.owner_username != req.query.username)
+        if(chatroom.owner_username != sessionUsername)
             return res.status(401).send();
 
         const dbMessagesDeletionResponse = await this.database.deleteMessagesByChatroomId(req.params.id);
@@ -601,52 +636,45 @@ export class RestAPI extends EventEmitter
         return res.status(200).send();
     }
 
-    private async getChatrooms(req: Request<any, any, any, AuthRequest>, res: Response<Chatroom[]>)
+    private async getChatrooms(req: Request, res: Response<Chatroom[]>)
     {
-        const isRequestDataValid = this.validationStrategies.usernameValidationStrategy.validate(req.query.username);
-        const requestApiKey = req.headers["x-api-key"];
+        const sessionUsername = req.session.username;
 
-        if(!isRequestDataValid)
-            return res.status(400).send();
-
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
+        if(!sessionUsername)
+            return res.status(401).send();
 
         const chatrooms = await this.database.getChatrooms();
-        if(!chatrooms)
+        if(chatrooms === undefined)
             return res.status(500).send();
 
         return res.status(200).json(chatrooms);
     }
 
-    private async getChatroomsByUsername(req: Request<GetChatroomsByUsername, any, any, AuthRequest>, res: Response<Chatroom[]>)
+    private async getChatroomsByUsername(req: Request<GetChatroomsByUsername>, res: Response<Chatroom[]>)
     {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.query.username) &&
             this.validationStrategies.usernameValidationStrategy.validate(req.params.username)
         );
-
-        const requestApiKey = req.headers["x-api-key"];
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const userData = await this.checkApiKey(req.query.username, requestApiKey, res);
-        if(!userData)
-            return;
-
         const chatrooms = await this.database.getChatroomsByOwner(req.params.username);
-        if(!chatrooms)
+        if(chatrooms === undefined)
             return res.status(500).send();
         
         return res.status(200).json(chatrooms);
     }
 
-    private async checkApiKey(username: string, apiKey: string | string[] | undefined, res: Response)
+    private async verifyUser(username: string, password: string, res: Response)
     {
         const dbUserResponse = await this.database.getUserData(username);
-        if(!dbUserResponse)
+        if(dbUserResponse === undefined)
         {
             res.status(500).send();
             return undefined;
@@ -659,7 +687,8 @@ export class RestAPI extends EventEmitter
         }
 
         const userData = dbUserResponse[0];
-        if(userData.api_key != apiKey)
+        const hashComparsionResult = await bcrypt.compare(password, userData.password_hash);
+        if(!hashComparsionResult)
         {
             res.status(401).send();
             return undefined;
@@ -668,8 +697,8 @@ export class RestAPI extends EventEmitter
         return userData;
     }
 
-    public static createApiKey(username: string, password: string)
+    private async createPasswordHash(plain: string)
     {
-        return crypto.createHash("md5").update(`${username}${password}`).digest("hex");
+        return await bcrypt.hash(plain, this.config.bcrypt.salt_rounds);
     }
 }

@@ -20,11 +20,24 @@ export interface WebsocketConfig
     path: string;
 }
 
+export interface BcryptConfig
+{
+    salt_rounds: number;
+}
+
+export interface SessionConfig
+{
+    secret: string;
+    cookie_max_age: number;
+}
+
 export default interface Config
 {
     port: number;
     ssl: SSLConfig;
     database: DatabaseConfig;
     websocket: WebsocketConfig;
+    bcrypt: BcryptConfig;
+    session: SessionConfig;
     rate_limiters: any;
 }
