@@ -270,7 +270,7 @@ export class RestAPI extends EventEmitter
         {
             if(!(await this.verifyUser(sessionUsername, req.body.old_password, res)))
                 return;
-            
+
             newPasswordHash = await this.createPasswordHash(req.body.password);
         }
 
@@ -666,7 +666,7 @@ export class RestAPI extends EventEmitter
     private async verifyUser(username: string, password: string, res: Response)
     {
         const dbUserResponse = await this.database.getUserData(username);
-        if(!dbUserResponse)
+        if(dbUserResponse === undefined)
         {
             res.status(500).send();
             return undefined;
@@ -680,7 +680,7 @@ export class RestAPI extends EventEmitter
 
         const userData = dbUserResponse[0];
         const hashComparsionResult = await bcrypt.compare(password, userData.password_hash);
-        if(hashComparsionResult)
+        if(!hashComparsionResult)
         {
             res.status(401).send();
             return undefined;
