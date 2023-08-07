@@ -30,6 +30,11 @@ export interface UpdateUser
     description?: string;
 }
 
+export interface DeleteUser
+{
+    username: string;
+}
+
 export interface GetUserByName
 {
     username: string;
@@ -181,7 +186,7 @@ export class RestAPI extends EventEmitter
         this.expressInstance.get("/chatroom/:username", rateLimit(rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg), this.getChatroomsByUsername.bind(this) as any);
     }
 
-    private async login(req: Request<any, any, Login>, res: Response)
+    private async login(req: Request<any, any, Login>, res: Response<User>)
     {
         const isRequestDataValid = (
             this.validationStrategies.usernameValidationStrategy.validate(req.body.username) &&
@@ -197,7 +202,10 @@ export class RestAPI extends EventEmitter
 
         req.session.username = userData.username;
 
-        return res.status(200).send();
+        return res.status(200).send({
+            username: userData.username,
+            description: userData.user_description,
+        });
     }
 
     // USER OPERATIONS
@@ -294,7 +302,7 @@ export class RestAPI extends EventEmitter
         });
     }
 
-    private async deleteUser(req: Request, res: Response)
+    private async deleteUser(req: Request<DeleteUser>, res: Response)
     {
         const sessionUsername = req.session.username;
 
