@@ -211,6 +211,27 @@ Modify the URI path of the websocket API:
 path="/realtime"
 ```
 
+#### Bcrypt
+
+Set the salt rounds of bcrypt. The more salt rounds, the more secure the hash. However, more salt rounds also mean greater computational effort. Please search the web for bcrypt when you don't know what this does.
+
+bcrypt is used for hashing user passwords.
+
+```toml
+[bcrypt]
+salt_rounds=12
+```
+
+#### session
+
+With the session secret, all session cookies are signed. Please generate a long random string and replace the example value. Set the storage duration of sessions with 'cookie_max_age' in milliseconds.
+
+```toml
+[session]
+secret="YourSessionSecret"
+cookie_max_age=86400000
+```
+
 #### Rate Limiters
 
 Rate limiting follows a simple logic as follows:
@@ -247,6 +268,10 @@ Please refer to the [Github Page](https://jajuomarketcoder.github.io/bla/) of th
 
 All messages are received and sent in JSON format.
 
+A connection requires authentication using a session ID that refers to an authenticated session. The session ID must be included as a cookie named 'sid' in the WebSocket upgrade request; otherwise, the connection will be closed immediately.
+
+To obtain a session ID, refer to the "/login" endpoint in the [REST API specification](https://jajuomarketcoder.github.io/bla/).
+
 To receive real-time data from a channel, such as a chatroom, it must be subscribed to beforehand:
 
 ```json
@@ -257,18 +282,6 @@ To receive real-time data from a channel, such as a chatroom, it must be subscri
             "chatrooms",
             ...
         ]
-    }
-}
-```
-
-Before subscribing to any channel, the connection must be authenticated with a user:
-
-```json
-{
-    "topic": "auth",
-    "payload": {
-        "username": "YourUsername",
-        "api_key": "YourApiKey"
     }
 }
 ```
@@ -304,9 +317,11 @@ where "type" can be one of three types:
 * insert
 * delete
 
-Expect to receive a snapshot immediately after subscription as initial data.
+For the topic "users.{chatroom_id}" expect to receive a snapshot immediately after subscription as initial data.
 
-"delete" and "insert" will change this initial dataset.
+For other topics, get a initial dataset from the REST API.
+
+"delete" and "insert" will change the initial dataset.
 
 
 ##### chatrooms
