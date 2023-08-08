@@ -55,7 +55,7 @@ export default class Api
             name: "sid",
             secret: this.config.session.secret,
             saveUninitialized: true,
-            cookie: { maxAge: this.config.session.cookie_max_age },
+            cookie: { maxAge: this.config.session.cookie_max_age, sameSite: "none" },
             resave: true,
             store: this.sessionStore,
         }));
