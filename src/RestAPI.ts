@@ -168,6 +168,7 @@ export class RestAPI extends EventEmitter
 
         // USER ENDPOINTS
         this.expressInstance.post("/login", rateLimit(rateLimiterCfg.post.login ? rateLimiterCfg.post.login : rateLimiterCfg), this.login.bind(this));
+        this.expressInstance.post("/logout", rateLimit(rateLimiterCfg.post.logout ? rateLimiterCfg.post.logout : rateLimiterCfg), this.logout.bind(this));
         this.expressInstance.post("/user", rateLimit(rateLimiterCfg.post.user ? rateLimiterCfg.post.user : rateLimiterCfg), this.createUser.bind(this));
         this.expressInstance.put("/user", rateLimit(rateLimiterCfg.put.user ? rateLimiterCfg.put.user : rateLimiterCfg), this.updateUser.bind(this));
         this.expressInstance.delete("/user/:username", rateLimit(rateLimiterCfg.delete.user.username ? rateLimiterCfg.delete.user.username : rateLimiterCfg), this.deleteUser.bind(this) as any);
@@ -188,6 +189,7 @@ export class RestAPI extends EventEmitter
         this.expressInstance.get("/chatroom/:username", rateLimit(rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg), this.getChatroomsByUsername.bind(this) as any);
     }
 
+    // USER OPERATIONS
     private async login(req: Request<any, any, Login>, res: Response<User>)
     {
         const isRequestDataValid = (
@@ -210,7 +212,16 @@ export class RestAPI extends EventEmitter
         });
     }
 
-    // USER OPERATIONS
+    private async logout(req: Request, res: Response)
+    {
+        if(!req.session.username)
+            return res.status(404).send();
+
+        req.session.username = undefined;
+
+        return res.status(200).send();
+    }
+
     private async createUser(req: Request<any, any, CreateUser>, res: Response<User>)
     {
         const isRequestDataValid = (

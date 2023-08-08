@@ -36,6 +36,18 @@ paths:
           $ref: "#/components/responses/User"
         '401':
           $ref: "#/components/responses/UnauthorizedError"
+  /logout:
+    post:
+      tags:
+        - user
+      summary: Logout current user
+      description: Logout current user
+      operationId: logout
+      responses:
+        '200':
+          description: successfully logged out
+        '404':
+          description: session got no associated user
   /user:
     post:
       tags:
