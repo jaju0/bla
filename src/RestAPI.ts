@@ -161,7 +161,8 @@ export class RestAPI extends EventEmitter
         this.expressInstance = expressInstance;
         this.expressInstance.use(express.json());
         this.expressInstance.use(cors({
-            credentials: true
+            credentials: true,
+            origin: true,
         }));
 
         const rateLimiterCfg = this.config.rate_limiters;
