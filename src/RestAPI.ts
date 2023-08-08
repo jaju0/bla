@@ -163,6 +163,7 @@ export class RestAPI extends EventEmitter
         this.expressInstance.use(cors({
             credentials: true,
             origin: true,
+            exposedHeaders: ["set-cookie"],
         }));
 
         const rateLimiterCfg = this.config.rate_limiters;
