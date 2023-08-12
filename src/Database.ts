@@ -40,6 +40,7 @@ export interface Chatroom
     id: string;
     topic: string;
     owner_username: string;
+    creation_time: Date;
 }
 
 
@@ -285,9 +286,13 @@ export default class Database
     {
         try
         {
+            let isoTime = chatroom.creation_time.toISOString();
+            isoTime = isoTime.replace("T", " "),
+            isoTime = isoTime.replace("Z", "");
+
             const response = await this.execute(
-                "INSERT INTO chatrooms VALUES (?, ?, ?)",
-                [chatroom.id, chatroom.topic, chatroom.owner_username]
+                "INSERT INTO chatrooms VALUES (?, ?, ?, ?)",
+                [chatroom.id, chatroom.topic, chatroom.owner_username, isoTime]
             );
 
             return response != undefined;
@@ -315,11 +320,14 @@ export default class Database
         }
     }
 
-    public async getChatrooms()
+    public async getChatrooms(orderBy?: string, desc?: boolean)
     {
+        const orderDir = desc == undefined ? "DESC" : (desc ? "DESC" : "ASC");
+        const orderColumn = orderBy == undefined ? "creation_time" : orderBy;
+
         try
         {
-            const response = await this.query("SELECT * FROM chatrooms");
+            const response = await this.execute(`SELECT * FROM chatrooms ORDER BY ? ${orderDir}`, [orderColumn]);
             return !response ? [] : response[0] as Chatroom[];
         }
         catch(err)
@@ -345,13 +353,16 @@ export default class Database
         }
     }
 
-    public async getChatroomsByOwner(owner_username: string)
+    public async getChatroomsByOwner(owner_username: string, orderBy?: string, desc?: boolean)
     {
+        const orderDir = desc == undefined ? "DESC" : (desc ? "DESC" : "ASC");
+        const orderColumn = orderBy == undefined ? "creation_time" : orderBy;
+
         try
         {
             const response = await this.execute(
-                "SELECT * FROM chatrooms WHERE owner_username=?",
-                [owner_username]
+                `SELECT * FROM chatrooms WHERE owner_username=? ORDER BY ? ${orderDir}`,
+                [owner_username, orderColumn]
             );
 
             return !response ? [] : response[0] as Chatroom[];

@@ -76,6 +76,12 @@ export interface DeleteChatroom
     id: string;
 }
 
+export interface GetChatrooms
+{
+    order_by?: string;
+    desc?: boolean;
+}
+
 export interface GetChatroomsByUsername
 {
     username: string;
@@ -110,6 +116,7 @@ export interface Chatroom
     id: string;
     topic: string;
     owner_username: string;
+    creation_time: number;
 }
 
 declare module "express-session"
@@ -602,9 +609,10 @@ export class RestAPI extends EventEmitter
             id: crypto.randomUUID(),
             owner_username: sessionUsername,
             topic: req.body.topic,
+            creation_time: Date.now(),
         };
         
-        const dbChatroomInsertionResponse = await this.database.insertChatroom(apiChatroom);
+        const dbChatroomInsertionResponse = await this.database.insertChatroom({ ...apiChatroom, creation_time: new Date(apiChatroom.creation_time) });
         if(!dbChatroomInsertionResponse)
             return res.status(500).send();
         
@@ -634,7 +642,7 @@ export class RestAPI extends EventEmitter
         if(!dbChatroomResponse.length)
             return res.status(404).send();
 
-        const chatroom = dbChatroomResponse[0];
+        const chatroom = { ...dbChatroomResponse[0], creation_time: dbChatroomResponse[0].creation_time.getTime() };
         if(chatroom.owner_username != sessionUsername)
             return res.status(401).send();
 
@@ -651,21 +659,23 @@ export class RestAPI extends EventEmitter
         return res.status(200).send();
     }
 
-    private async getChatrooms(req: Request, res: Response<Chatroom[]>)
+    private async getChatrooms(req: Request<any, any, any, GetChatrooms>, res: Response<Chatroom[]>)
     {
         const sessionUsername = req.session.username;
 
         if(!sessionUsername)
             return res.status(401).send();
 
-        const chatrooms = await this.database.getChatrooms();
+        const chatrooms = await this.database.getChatrooms(req.query.order_by, req.query.desc);
         if(chatrooms === undefined)
             return res.status(500).send();
 
-        return res.status(200).json(chatrooms);
+        return res.status(200).json(chatrooms.map(value => {
+            return { ...value, creation_time: value.creation_time.getTime() };
+        }));
     }
 
-    private async getChatroomsByUsername(req: Request<GetChatroomsByUsername>, res: Response<Chatroom[]>)
+    private async getChatroomsByUsername(req: Request<GetChatroomsByUsername, any, any, GetChatrooms>, res: Response<Chatroom[]>)
     {
         const sessionUsername = req.session.username;
 
@@ -679,11 +689,13 @@ export class RestAPI extends EventEmitter
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const chatrooms = await this.database.getChatroomsByOwner(req.params.username);
+        const chatrooms = await this.database.getChatroomsByOwner(req.params.username, req.query.order_by, req.query.desc);
         if(chatrooms === undefined)
             return res.status(500).send();
         
-        return res.status(200).json(chatrooms);
+        return res.status(200).json(chatrooms.map(value => {
+            return { ...value, creation_time: value.creation_time.getTime() };
+        }));
     }
 
     private async verifyUser(username: string, password: string, res: Response)

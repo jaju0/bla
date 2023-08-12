@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS chatrooms (
     id VARCHAR(36) NOT NULL PRIMARY KEY,
     topic VARCHAR(255) NOT NULL,
-    owner_username VARCHAR(255) NOT NULL
+    owner_username VARCHAR(255) NOT NULL,
+    creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
