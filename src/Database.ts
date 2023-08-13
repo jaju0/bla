@@ -327,7 +327,7 @@ export default class Database
 
         try
         {
-            const response = await this.execute(`SELECT * FROM chatrooms ORDER BY ? ${orderDir}`, [orderColumn]);
+            const response = await this.query(`SELECT * FROM chatrooms ORDER BY ${orderColumn} ${orderDir}`);
             return !response ? [] : response[0] as Chatroom[];
         }
         catch(err)
@@ -361,8 +361,8 @@ export default class Database
         try
         {
             const response = await this.execute(
-                `SELECT * FROM chatrooms WHERE owner_username=? ORDER BY ? ${orderDir}`,
-                [owner_username, orderColumn]
+                `SELECT * FROM chatrooms WHERE owner_username=? ORDER BY ${orderColumn} ${orderDir}`,
+                [owner_username]
             );
 
             return !response ? [] : response[0] as Chatroom[];
