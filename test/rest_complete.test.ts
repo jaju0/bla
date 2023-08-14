@@ -313,13 +313,31 @@ class RestCompleteTest
             "cookie": `sid=${this.sessionId}`,
         };
 
-        const response = await axios.get(this.params.url + `/chatroom/${this.params.username}`, {headers});
+        const response = await axios.get(this.params.url + `/chatroom/user/${this.params.username}`, {headers});
         if(response.status != 200)
             throw new Error(`chatroom list by username request failed with response code: ${response.status}`);
 
         console.log("[OK] GET /chatroom/:username");
     }
 
+    public async getChatroom()
+    {
+        if(!this.sessionId)
+            throw new Error("sessionId has to be set for protected endpoints");
+
+        if(!this.chatroomId)
+            throw new Error("a chatroom must be created before it can be requested");
+
+        const headers = {
+            "cookie": `sid=${this.sessionId}`,
+        };
+
+        const response = await axios.get(this.params.url + `/chatroom/${this.chatroomId}`, {headers});
+        if(response.status != 200)
+            throw new Error(`chatroom by id request failed with response code: ${response.status}`);
+
+        console.log("[OK] GET /chatroom/:id");
+    }
 }
 
 (async () =>{
@@ -336,6 +354,7 @@ class RestCompleteTest
     await test.getUsers();
     await test.getUserByName();
     await test.postChatroom();
+    await test.getChatroom();
     await test.getChatrooms();
     await test.getChatroomsByUsername();
     await test.postMessage();
