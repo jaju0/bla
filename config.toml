@@ -71,3 +71,6 @@ max = 60
 
 [rate_limiters.get.chatroom.username]
 max = 60
+
+[rate_limiters.get.chatroom.id]
+max = 60

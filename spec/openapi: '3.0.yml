@@ -375,6 +375,33 @@ paths:
           description: chatroom not found
         '500':
           description: Sorry, I fucked up badly! Don't hire me!
+    get:
+      security:
+        - sessionAuth: []
+      tags:
+        - chatroom
+      summary: Get a chatroom
+      description: Get a chatroom
+      operationId: getChatroom
+      parameters:
+        - name: id
+          in: path
+          description: ID of chatroom to get
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/Chatroom"
+        '400':
+          description: Invalid request
+        '401':
+          $ref: "#/components/responses/UnauthorizedError"
+        '404':
+          description: chatroom not found
+        '500':
+          description: Sorry, I fucked up badly! Don't hire me!
+
   /chatroom/{username}:
     get:
       security:
@@ -504,6 +531,9 @@ components:
         owner_username:
           type: string
           example: AnneWand
+        creation_time:
+          type: number
+          example: 1689363578345
   responses:
     UnauthorizedError:
       description: no authorized session found

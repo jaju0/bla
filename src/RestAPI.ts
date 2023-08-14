@@ -87,6 +87,11 @@ export interface GetChatroomsByUsername
     username: string;
 }
 
+export interface GetChatroom
+{
+    id: string;
+}
+
 
 // RESPONSE SCHEMAS
 export interface User
@@ -195,7 +200,8 @@ export class RestAPI extends EventEmitter
         this.expressInstance.post("/chatroom", rateLimit(rateLimiterCfg.post.chatroom ? rateLimiterCfg.post.chatroom : rateLimiterCfg), this.postChatroom.bind(this));
         this.expressInstance.delete("/chatroom/:id", rateLimit(rateLimiterCfg.delete.chatroom.id ? rateLimiterCfg.delete.chatroom.id : rateLimiterCfg), this.deleteChatroom.bind(this) as any);
         this.expressInstance.get("/chatroom", rateLimit(rateLimiterCfg.get.chatroom ? rateLimiterCfg.get.chatroom : rateLimiterCfg), this.getChatrooms.bind(this) as any);
-        this.expressInstance.get("/chatroom/:username", rateLimit(rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg), this.getChatroomsByUsername.bind(this) as any);
+        this.expressInstance.get("/chatroom/user/:username", rateLimit(rateLimiterCfg.get.chatroom.username ? rateLimiterCfg.get.chatroom.username : rateLimiterCfg), this.getChatroomsByUsername.bind(this) as any);
+        this.expressInstance.get("/chatroom/:id", rateLimit(rateLimiterCfg.get.chatroom.id ? rateLimiterCfg.get.chatroom.id : rateLimiterCfg), this.getChatroom.bind(this) as any);
     }
 
     // USER OPERATIONS
@@ -696,6 +702,33 @@ export class RestAPI extends EventEmitter
         return res.status(200).json(chatrooms.map(value => {
             return { ...value, creation_time: value.creation_time.getTime() };
         }));
+    }
+
+    private async getChatroom(req: Request<GetChatroom>, res: Response<Chatroom>)
+    {
+        const sessionUsername = req.session.username;
+
+        if(!sessionUsername)
+            return res.status(401).send();
+
+        const isRequestDataValid = (
+            this.validationStrategies.uuidValidationStrategy.validate(req.params.id)
+        );
+
+        if(!isRequestDataValid)
+            return res.status(400).send();
+
+        const chatroom = await this.database.getChatroomById(req.params.id);
+        if(chatroom === undefined)
+            return res.status(500).send();
+
+        if(chatroom.length === 0)
+            return res.status(404).send();
+
+        return res.status(200).json({
+            ...chatroom[0],
+            creation_time: chatroom[0].creation_time.getTime(),
+        });
     }
 
     private async verifyUser(username: string, password: string, res: Response)
