@@ -66,6 +66,11 @@ export interface GetMessageByChatroomId
     chatroom_id: string;
 }
 
+export interface GetMessagesQuery
+{
+    desc?: string;
+}
+
 export interface CreateChatroom
 {
     topic: string;
@@ -527,7 +532,7 @@ export class RestAPI extends EventEmitter
         return res.status(200).json(apiMessage);
     }
 
-    private async getMessagesByUsername(req: Request<GetMessageByUsername>, res: Response<Message[]>)
+    private async getMessagesByUsername(req: Request<GetMessageByUsername, any, any, GetMessagesQuery>, res: Response<Message[]>)
     {
         const sessionUsername = req.session.username;
 
@@ -535,13 +540,14 @@ export class RestAPI extends EventEmitter
             return res.status(401).send();
 
         const isRequestDataValid = (
-            this.validationStrategies.usernameValidationStrategy.validate(req.params.username)
+            this.validationStrategies.usernameValidationStrategy.validate(req.params.username) &&
+            (req.query.desc ? req.query.desc === "0" || req.query.desc === "1" : true)
         );
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const messages = await this.database.getMessagesByUsername(req.params.username);
+        const messages = await this.database.getMessagesByUsername(req.params.username, "creation_time", req.query.desc === "1");
         if(messages === undefined)
             return res.status(500).send();
 
@@ -558,7 +564,7 @@ export class RestAPI extends EventEmitter
         }));
     }
 
-    private async getMessagesByChatroomId(req: Request<GetMessageByChatroomId>, res: Response<Message[]>)
+    private async getMessagesByChatroomId(req: Request<GetMessageByChatroomId, any, any, GetMessagesQuery>, res: Response<Message[]>)
     {
         const sessionUsername = req.session.username;
 
@@ -566,13 +572,14 @@ export class RestAPI extends EventEmitter
             return res.status(401).send();
 
         const isRequestDataValid = (
-            this.validationStrategies.uuidValidationStrategy.validate(req.params.chatroom_id)
+            this.validationStrategies.uuidValidationStrategy.validate(req.params.chatroom_id) &&
+            (req.query.desc ? req.query.desc === "0" || req.query.desc === "1" : true)
         );
 
         if(!isRequestDataValid)
             return res.status(400).send();
 
-        const messages = await this.database.getMessagesByChatroomId(req.params.chatroom_id);
+        const messages = await this.database.getMessagesByChatroomId(req.params.chatroom_id, "creation_time", req.query.desc === "1");
         if(messages === undefined)
             return res.status(500).send();
 

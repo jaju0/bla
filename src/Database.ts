@@ -248,12 +248,15 @@ export default class Database
         }
     }
 
-    public async getMessagesByUsername(username: string)
+    public async getMessagesByUsername(username: string, orderBy?: string, desc?: boolean)
     {
+        const orderByParam = !orderBy ? "creation_time" : orderBy;
+        const descParam = !desc ? "ASC" : "DESC";
+
         try
         {
             const response = await this.execute(
-                "SELECT * FROM messages WHERE username=?",
+                `SELECT * FROM messages WHERE username=? ORDER BY ${orderByParam} ${descParam}`,
                 [username]
             );
 
@@ -265,12 +268,15 @@ export default class Database
         }
     }
 
-    public async getMessagesByChatroomId(chatroomId: string)
+    public async getMessagesByChatroomId(chatroomId: string, orderBy?: string, desc?: boolean)
     {
+        const orderByParam = !orderBy ? "creation_time" : orderBy;
+        const descParam = !desc ? "ASC" : "DESC";
+
         try
         {
             const response = await this.execute(
-                "SELECT * FROM messages WHERE chatroom_id=?",
+                `SELECT * FROM messages WHERE chatroom_id=? ORDER BY ${orderByParam} ${descParam}`,
                 [chatroomId]
             );
 

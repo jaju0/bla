@@ -272,6 +272,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: desc
+          in: query
+          description: whether to fetch in descending order (pass "1") or in ascending order (pass "0")
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           $ref: "#/components/responses/MessageList"
@@ -295,6 +301,12 @@ paths:
           in: path
           description: id of the chatroom to get all messages from
           required: true
+          schema:
+            type: string
+        - name: desc
+          in: query
+          description: whether to fetch in descending order (pass "1") or in ascending order (pass "0")
+          required: false
           schema:
             type: string
       responses:
